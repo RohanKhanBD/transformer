@@ -118,18 +118,10 @@ def top_p(probs: torch.Tensor, p: float):
 
 @dataclass
 class ModelConfig:
-    # Common parameters
     maxlen: int
     embedding_dim: int
     num_heads: int
-    # LLama parameters
     kv_heads: int
-    # Multi-Head Latent Attention parameters
-    kv_lora_rank: int
-    qk_nope_dim: int
-    qk_rope_dim: int
-    v_dim: int
-    # More Common parameters
     n_layers: int
     inter_dim: int
     base: int

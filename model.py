@@ -75,16 +75,6 @@ class KVCache(nn.Module):
         return self.k_cache[:, : start_pos + T], self.v_cache[:, : start_pos + T]
 
 
-# Multi-Head Latent Attention
-# ---------------------------------------
-class MultiHeadLatentAttention(nn.Module):
-    def __init__(self, conf: ModelConfig):
-        super().__init__()
-        self.conf = conf
-        self.qk_head_dim = conf.qk_rope_dim + conf.qk_nope_dim
-        self.wq = nn.Linear(conf.embedding_dim, self.qk_head_dim, bias=conf.atten_bias)
-
-
 # Multi-Head Attention
 # ---------------------------------------
 class MultiHeadAttention(nn.Module):
