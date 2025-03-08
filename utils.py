@@ -83,6 +83,7 @@ def set_seed(seed: int):
 
 def save(obj: object, file: str, name: str = "ckp.pt"):
     pt = os.path.join(file, name)
+    os.makedirs(pt, exist_ok=True)
     torch.save(obj, pt)
 
 
