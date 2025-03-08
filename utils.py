@@ -87,7 +87,7 @@ def save(obj: object, file: str, name: str = "ckp.pt"):
     torch.save(obj, pt)
 
 
-def load(file: str, weights_only: bool = True, name: str = "ckp.pt", map_location=None):
+def load(file: str, name: str = "ckp.pt", weights_only: bool = True, map_location=None):
     pt = os.path.join(file, name)
     return torch.load(pt, weights_only=weights_only, map_location=map_location)
 
