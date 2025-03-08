@@ -1,0 +1,8 @@
+torch
+torchvision
+torchaudio
+lightning
+datasets
+tensorboard
+tqdm
+regex
