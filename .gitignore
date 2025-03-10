@@ -1,2 +1,5 @@
 .pt
 .pyc
+tokenizer/
+encoded_data/
+nanogpt/
