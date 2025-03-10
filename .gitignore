@@ -1,5 +1,4 @@
-.pt
-.pyc
+__pycache__/
 tokenizer/
 encoded_data/
 nanogpt/
