@@ -10,15 +10,3 @@
 * Load any other tokenization algorithm except BPE.
 * Can't use safetensors.
 * And there are many more things it can't do, but I will stop now.
-### The code structure:
-```
-configuration.py
-generate.py
-model.py
-README.md
-tokenize_data.py
-tokenizer.py
-train_tokenizer.py
-train.py
-utils.py
-```
