@@ -179,4 +179,4 @@ class Tokenizer:
             self.merges,
             self.special_token,
             self.invers_special_token,
-        ) = load("tokenizer", False, "tokenizer.pt")
+        ) = load("tokenizer", "tokenizer.pt", False)

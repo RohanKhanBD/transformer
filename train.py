@@ -71,7 +71,7 @@ def main(fabric: Fabric):
 
     try:
         checkpoint = load(save_fie_name)
-        data_state = load(save_fie_name, False, "data_state_and_training_info.pt")
+        data_state = load(save_fie_name, "data_state_and_training_info.pt", False)
         fabric.print(data_state)
         train_i = data_state["epoch"]
         val_i = data_state["val_i"]

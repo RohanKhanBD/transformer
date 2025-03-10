@@ -12,7 +12,7 @@ def main():
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     checkpoint = load("nanogpt", map_location=dev)
     model_config: ModelConfig = load(
-        "nanogpt", False, "model_config.pt", map_location=dev.type
+        "nanogpt", "model_config.pt", False, map_location=dev.type
     )
     model_config.flash = False
     model = TransformerLM(model_config, tokenizer.vocab_size).to(dev)

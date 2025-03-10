@@ -18,7 +18,7 @@ class TextDataset(torch.utils.data.Dataset):
         shards = [i for i in shards if shard in i]
         self.shards = shards
         self.shard_i = 0
-        self.data = load(shard_file, False, self.shards[self.shard_i]).astype("int32")
+        self.data = load(shard_file, self.shards[self.shard_i], False).astype("int32")
 
         self.maxlen = maxlen
 
@@ -31,7 +31,7 @@ class TextDataset(torch.utils.data.Dataset):
             self.shard_i = (self.shard_i + 1) % len(self.shards)
             print(f"current shard:{self.shard_i}")
             print(f"shards left:{len(self.shards) - self.shard_i}")
-            self.data = load(self.shard_file, False, self.shards[self.shard_i]).astype(
+            self.data = load(self.shard_file, self.shards[self.shard_i], False).astype(
                 "int32"
             )
             raise StopIteration
@@ -100,7 +100,7 @@ def get_encoded_data_token_len(file: str):
     size = 0
     for shard in shards:
         print(shard)
-        data = load(file, False, shard)
+        data = load(file, shard, False)
         size += len(data)
         print(size)
     return size
