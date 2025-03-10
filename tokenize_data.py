@@ -37,7 +37,7 @@ if __name__ == "__main__":
         bar = None
         c_data = np.empty((encoded_dataset_shard_size,), dtype=np.uint32)
         for i in range(non_encoded_dataset_shard_size):
-            chunks = train_data["text"].shard(non_encoded_dataset_shard_size, i)
+            chunks = train_data.shard(non_encoded_dataset_shard_size, i)["text"]
             for token in p.imap(tokenize, chunks, chunksize=16):
                 if precessed_size + len(token) < encoded_dataset_shard_size:
                     c_data[precessed_size : precessed_size + len(token)] = np.array(

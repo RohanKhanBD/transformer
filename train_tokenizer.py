@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     trained = False
     for shard_i in range(tokenizer_train_shard_size):
-        chunks = data_sets["text"].shard(tokenizer_train_shard_size, shard_i)
+        chunks = data_sets.shard(tokenizer_train_shard_size, shard_i)["text"]
         chunk_str = "\n".join(chunks)
         trained = tok.train(chunk_str)
         print(f"Shard {shard_i} trained")
