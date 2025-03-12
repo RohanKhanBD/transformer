@@ -49,7 +49,7 @@ save_fie_name = "nanogpt"
 data_file_name = "encoded_data"
 
 # dataset path in huggingface datasets
-dataset_path_huggingface = "roneneldan/TinyStories"
+dataset_path_huggingface = "openwebtext"
 dataset_sub_set: str | None = None
 
 # ---------------------------------------
@@ -59,4 +59,4 @@ dataset_sub_set: str | None = None
 compile_model = True
 
 # trusting datasets remote code
-trust_remote_code = False
+trust_remote_code = True
