@@ -244,17 +244,11 @@ class TransformerLM(nn.Module):
 
         self.register_buffer(
             "freq_cis",
-            rope(
-                conf.embedding_dim // conf.num_heads,
-                conf.maxlen * 2,
-                conf.base,
-            ),
+            rope(conf.embedding_dim // conf.num_heads, conf.maxlen * 2, conf.base),
             False,
         )
         self.register_buffer(
-            "mask",
-            torch.full((conf.maxlen, conf.maxlen), -float("inf")).triu(1),
-            False,
+            "mask", torch.full((conf.maxlen, conf.maxlen), -float("inf")).triu(1), False
         )
 
     def init_weights(self, module: nn.Module):
