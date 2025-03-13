@@ -37,13 +37,12 @@ def main(fabric: Fabric):
     is_cuda = True if dev == "cuda" else False
 
     model_conf = TransformerLM.get_transformer_config(
-        maxlen=64,
-        embedding_dim=512,
-        num_heads=16,
-        kv_heads=16,
-        n_layers=8,
-        inter_dim=512 * 4,
-        flash=is_cuda,
+        maxlen=1024,
+        embedding_dim=768,
+        num_heads=12,
+        kv_heads=12,
+        n_layers=12,
+        inter_dim=768 * 4,
     )
     grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
     model = TransformerLM(model_conf, tok.vocab_size)
