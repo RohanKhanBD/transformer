@@ -25,7 +25,7 @@ encoded_dataset_shard_size = int(1e8)
 non_encoded_dataset_shard_size = 500
 
 # tokenizer train shard size
-tokenizer_train_shard_size = 50
+tokenizer_train_shard_size = 500
 
 # ---------------------------------------
 # Floats
