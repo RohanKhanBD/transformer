@@ -2,11 +2,11 @@
 # Ints
 # ---------------------------------------
 # training params
-epochs: int = 5243
+steps: int = 5243
 
 # eval params
 eval_rate: int = 50
-eval_epochs: int = 100
+eval_steps: int = 100
 
 # saving rate
 save_rate: int = 100

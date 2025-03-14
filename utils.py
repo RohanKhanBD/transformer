@@ -67,12 +67,12 @@ def est_loss(
     return losses.mean()
 
 
-def get_lr(iter: int, epochs: int, lr: float, min_lr: float, warm_up: int):
+def get_lr(iter: int, steps: int, lr: float, min_lr: float, warm_up: int):
     if iter < warm_up:
         return lr * iter / warm_up
-    if iter > epochs:
+    if iter > steps:
         return min_lr
-    d_ratio = (iter - warm_up) / (epochs - warm_up)
+    d_ratio = (iter - warm_up) / (steps - warm_up)
     coff = 0.5 * (1 + cos(pi * d_ratio))
     return min_lr + coff * (lr - min_lr)
 
@@ -92,6 +92,8 @@ def load(file: str, name: str = "ckp.pt", weights_only: bool = True, map_locatio
     return torch.load(pt, weights_only=weights_only, map_location=map_location)
 
 
+# This code is not used any where.
+# I use it for calculating the total token len in the dataset so can set the epochs.
 def get_encoded_data_token_len(file: str):
     shards = os.listdir(file)
     shards = sorted(shards)
@@ -119,17 +121,25 @@ def top_p(probs: torch.Tensor, p: float):
 
 @dataclass
 class ModelConfig:
+    # Common parameters
     maxlen: int
     embedding_dim: int
     num_heads: int
-    kv_heads: int
     n_layers: int
     inter_dim: int
+    # gqa
+    kv_heads: int | None
+    # mla
+    kv_lora_rank: int | None
+    # rope
     base: int
     eps: float
+    # dropout
     atten_dropout: float
     ffn_dropout: float
     embedding_dropout: float
+    # flash attention
     flash: bool
+    # use bias
     atten_bias: bool
     ffn_bias: bool

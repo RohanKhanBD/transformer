@@ -11,9 +11,9 @@ from model import TransformerLM
 from utils import TextDataset, load, save, est_loss, get_lr
 
 from configuration import (
-    epochs,
+    steps,
     eval_rate,
-    eval_epochs,
+    eval_steps,
     save_rate,
     lr,
     min_lr,
@@ -72,7 +72,7 @@ def main(fabric: Fabric):
         checkpoint = load(save_fie_name)
         data_state = load(save_fie_name, "data_state_and_training_info.pt", False)
         fabric.print(data_state)
-        train_i = data_state["epoch"]
+        train_i = data_state["step"]
         val_i = data_state["val_i"]
 
         train_data = data_state["train_data"]
@@ -92,28 +92,28 @@ def main(fabric: Fabric):
     x, y = next(train_data_iter)
     t0 = time()
 
-    for i in range(train_i, epochs + 1):
+    for i in range(train_i, steps + 1):
         ploss = 0.0
-        n_lr = get_lr(i, epochs, lr, min_lr, warm_up)
+        n_lr = get_lr(i, steps, lr, min_lr, warm_up)
         fabric.log("learning rate", n_lr, step=i)
         for param_group in optim.param_groups:
             param_group["lr"] = n_lr
 
-        if i % eval_rate == 0 or i == epochs:
-            e_loss = est_loss(model, val_data, val_data_iter, eval_epochs)
+        if i % eval_rate == 0 or i == steps:
+            e_loss = est_loss(model, val_data, val_data_iter, eval_steps)
             fabric.all_reduce(e_loss, reduce_op="mean")
             fabric.log("val loss", e_loss.item(), step=val_i)
             val_i += 1
-            fabric.print(f"step: {i}/{epochs}, val_loss: {e_loss.item():.8f}")
+            fabric.print(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
 
-        if (i % save_rate == 0 or i == epochs) and fabric.is_global_zero:
+        if (i % save_rate == 0 or i == steps) and fabric.is_global_zero:
             fabric.print("saving checkpoint...")
             checkpoint = {"model": model.state_dict(), "optim": optim.state_dict()}
 
             data_state = {
                 "train_data": train_data,
                 "val_data": val_data,
-                "epoch": i,
+                "step": i,
                 "val_i": val_i,
             }
             save(checkpoint, save_fie_name)
@@ -152,7 +152,7 @@ def main(fabric: Fabric):
         t0 = t1
         tok_per_sec = (batch_size * model_conf.maxlen * grad_ecum * n_device) / dt
         fabric.print(
-            f"step: {i}/{epochs} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f}"
+            f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f}"
         )
 
 
