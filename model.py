@@ -269,10 +269,13 @@ class FFN(nn.Module):
 # Transformer Block
 # ---------------------------------------
 class Block(nn.Module):
-    def __init__(self, conf: ModelConfig):
+    def __init__(self, conf: ModelConfig, mla: bool):
         super().__init__()
         self.norm1 = RMS_Norm(conf.embedding_dim, conf.eps)
-        self.atten = MultiHeadAttention(conf)
+        if mla:
+            self.atten = MultiHeadLatentAttention(conf)
+        else:
+            self.atten = MultiHeadAttention(conf)
         self.norm2 = RMS_Norm(conf.embedding_dim, conf.eps)
         self.ffn = FFN(conf)
 
