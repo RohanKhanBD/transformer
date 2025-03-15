@@ -40,12 +40,12 @@ def main(fabric: Fabric):
         maxlen=1024,
         embedding_dim=768,
         num_heads=12,
-        kv_heads=12,
         n_layers=12,
         inter_dim=768 * 4,
+        kv_lora_rank=32,
     )
     grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
-    model = TransformerLM(model_conf, tok.vocab_size)
+    model = TransformerLM(model_conf, tok.vocab_size, True)
     model: TransformerLM = torch.compile(
         model, backend=backend, disable=not compile_model
     )
