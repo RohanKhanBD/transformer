@@ -38,11 +38,11 @@ def main(fabric: Fabric):
 
     model_conf = TransformerLM.get_transformer_config(
         maxlen=1024,
-        embedding_dim=768,
-        num_heads=12,
-        n_layers=12,
-        inter_dim=768 * 4,
-        kv_lora_rank=32,
+        embedding_dim=512,
+        num_heads=16,
+        n_layers=8,
+        inter_dim=512,
+        kv_lora_rank=4,
     )
     grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
     model = TransformerLM(model_conf, tok.vocab_size, True)
