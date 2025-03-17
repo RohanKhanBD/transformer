@@ -2,7 +2,7 @@
 # Ints
 # ---------------------------------------
 # training params
-steps: int = 5243
+steps: int = 17831
 
 # eval params
 eval_rate: int = 50
@@ -12,11 +12,11 @@ eval_steps: int = 100
 save_rate: int = 100
 
 # learning rate schedule params
-warm_up: int = 6
+warm_up: int = 715
 
 # batch sizes
-total_batch_size = 2**16
-batch_size: int = 4
+total_batch_size = 2**19
+batch_size: int = 16
 
 # encoded dataset shard size
 encoded_dataset_shard_size = int(1e8)
