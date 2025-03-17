@@ -36,29 +36,33 @@ if __name__ == "__main__":
         shard_pos = 0
         bar = None
         c_data = np.empty((encoded_dataset_shard_size,), dtype=np.uint32)
-        for token in p.imap(tokenize, train_data["text"], chunksize=16):
-            if precessed_size + len(token) < encoded_dataset_shard_size:
-                c_data[precessed_size : precessed_size + len(token)] = np.array(token)
-                precessed_size += len(token)
-                if bar is None:
-                    bar = tqdm(
-                        total=encoded_dataset_shard_size,
-                        unit="tokens",
-                        desc=f"Shard {shard_pos}",
+        for i in range(non_encoded_dataset_shard_size):
+            chunks = train_data.shard(non_encoded_dataset_shard_size, i)["text"]
+            for token in p.imap(tokenize, chunks, chunksize=16):
+                if precessed_size + len(token) < encoded_dataset_shard_size:
+                    c_data[precessed_size : precessed_size + len(token)] = np.array(
+                        token
                     )
-                bar.update(len(token))
-            else:
-                shard_type = "val" if shard_pos == 0 else "train"
-                reminder = encoded_dataset_shard_size - precessed_size
-                bar.update(reminder)
-                c_data[precessed_size : precessed_size + reminder] = np.array(
-                    token[:reminder]
-                )
-                save(c_data, "encoded_data", f"{shard_type}_{shard_pos}.pt")
-                shard_pos += 1
-                bar = None
-                c_data[0 : len(token) - reminder] = np.array(token[reminder:])
-                precessed_size = len(token) - reminder
+                    precessed_size += len(token)
+                    if bar is None:
+                        bar = tqdm(
+                            total=encoded_dataset_shard_size,
+                            unit="tokens",
+                            desc=f"Shard {shard_pos}",
+                        )
+                    bar.update(len(token))
+                else:
+                    shard_type = "val" if shard_pos == 0 else "train"
+                    reminder = encoded_dataset_shard_size - precessed_size
+                    bar.update(reminder)
+                    c_data[precessed_size : precessed_size + reminder] = np.array(
+                        token[:reminder]
+                    )
+                    save(c_data, "encoded_data", f"{shard_type}_{shard_pos}.pt")
+                    shard_pos += 1
+                    bar = None
+                    c_data[0 : len(token) - reminder] = np.array(token[reminder:])
+                    precessed_size = len(token) - reminder
         if precessed_size != 0:
             shard_type = "val" if shard_pos == 0 else "train"
             save(
