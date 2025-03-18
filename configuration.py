@@ -2,20 +2,20 @@
 # Ints
 # ---------------------------------------
 # training params
-epochs: int = 5243
+steps: int = 17831
 
 # eval params
 eval_rate: int = 50
-eval_epochs: int = 100
+eval_steps: int = 100
 
 # saving rate
 save_rate: int = 100
 
 # learning rate schedule params
-warm_up: int = 6
+warm_up: int = 715
 
 # batch sizes
-total_batch_size = 2**16
+total_batch_size = 2**19
 batch_size: int = 4
 
 # encoded dataset shard size

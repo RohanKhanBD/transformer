@@ -60,11 +60,11 @@ class KVCache(nn.Module):
         batch_size: int,
         maxlen: int,
         head_dim: int,
-        kv_heads: int,
+        num_heads: int,
         device: torch.device,
     ):
         super().__init__()
-        cache_shape = (batch_size, maxlen, kv_heads, head_dim)
+        cache_shape = (batch_size, maxlen, num_heads, head_dim)
         self.register_buffer("k_cache", torch.zeros(cache_shape).to(device), False)
         self.register_buffer("v_cache", torch.zeros(cache_shape).to(device), False)
 
@@ -147,6 +147,87 @@ class MultiHeadAttention(nn.Module):
         return self.atten_dp.forward(output)
 
 
+# Multi-Head Latent Attention
+# ---------------------------------------
+class MultiHeadLatentAttention(nn.Module):
+    def __init__(self, conf: ModelConfig):
+        super().__init__()
+        self.conf = conf
+        self.head_dim = conf.embedding_dim // conf.num_heads
+        assert self.head_dim * conf.num_heads == conf.embedding_dim, (
+            "embedding_dim must be divisible by num_heads"
+        )
+
+        self.query = nn.Linear(
+            conf.embedding_dim, conf.num_heads * self.head_dim, bias=conf.atten_bias
+        )
+
+        # kv init
+        self.compress_kv = nn.Linear(
+            conf.embedding_dim, conf.kv_lora_rank, bias=conf.atten_bias
+        )
+        self.kv_norm = RMS_Norm(conf.kv_lora_rank, conf.eps)
+        self.decompress_k = nn.Linear(
+            conf.kv_lora_rank, conf.num_heads * self.head_dim, bias=conf.atten_bias
+        )
+        self.decompress_v = nn.Linear(
+            conf.kv_lora_rank, conf.num_heads * self.head_dim, bias=conf.atten_bias
+        )
+
+        self.proj = nn.Linear(
+            conf.num_heads * self.head_dim, conf.embedding_dim, bias=conf.atten_bias
+        )
+
+        self.head_dp = nn.Dropout(conf.atten_dropout)
+        self.atten_dp = nn.Dropout(conf.atten_dropout)
+
+        self.cache: KVCache | None = None
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        freq_cis: torch.Tensor,
+        start_pos: int,
+        mask: torch.Tensor,
+    ):
+        B, T, C = x.shape
+        q = self.query.forward(x)
+
+        # kv forward
+        kv_compressed = self.compress_kv.forward(x)
+        kv_norm = self.kv_norm.forward(kv_compressed)
+
+        k = self.decompress_k.forward(kv_norm)
+        v = self.decompress_v.forward(kv_norm)
+
+        # same as mha without repeat_interleave
+        q = q.view(B, T, self.conf.num_heads, self.head_dim)
+        k = k.view(B, T, self.conf.num_heads, self.head_dim)
+        v = v.view(B, T, self.conf.num_heads, self.head_dim)
+
+        q = apply_rope(q, freq_cis)
+        k = apply_rope(k, freq_cis)
+
+        if self.cache is not None:
+            k, v = self.cache.update(k, v, start_pos)
+
+        q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
+
+        if self.conf.flash:
+            output = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=mask, dropout_p=self.conf.atten_dropout
+            )
+        else:
+            atten = q @ k.transpose(-2, -1) * (1 / sqrt(self.head_dim))
+            atten = atten + mask
+            atten = self.head_dp.forward(F.softmax(atten, -1))
+            output = atten @ v
+
+        output = output.transpose(1, 2).contiguous().view(B, T, C)
+        output = self.proj.forward(output)
+        return self.atten_dp.forward(output)
+
+
 # Feed-Forward Network
 # ---------------------------------------
 class FFN(nn.Module):
@@ -169,7 +250,10 @@ class Block(nn.Module):
     def __init__(self, conf: ModelConfig):
         super().__init__()
         self.norm1 = RMS_Norm(conf.embedding_dim, conf.eps)
-        self.atten = MultiHeadAttention(conf)
+        if conf.mla:
+            self.atten = MultiHeadLatentAttention(conf)
+        else:
+            self.atten = MultiHeadAttention(conf)
         self.norm2 = RMS_Norm(conf.embedding_dim, conf.eps)
         self.ffn = FFN(conf)
 
@@ -193,9 +277,11 @@ class TransformerLM(nn.Module):
         maxlen: int,
         embedding_dim: int,
         num_heads: int,
-        kv_heads: int,
         n_layers: int,
         inter_dim: int,
+        kv_heads: int | None = None,
+        mla: bool = False,
+        kv_lora_rank: int | None = None,
         base: int = 10000,
         eps: float = 1e-6,
         atten_dropout: float = 0.0,
@@ -209,9 +295,11 @@ class TransformerLM(nn.Module):
             maxlen=maxlen,
             embedding_dim=embedding_dim,
             num_heads=num_heads,
-            kv_heads=kv_heads,
             n_layers=n_layers,
             inter_dim=inter_dim,
+            kv_heads=kv_heads,
+            mla=mla,
+            kv_lora_rank=kv_lora_rank,
             base=base,
             eps=eps,
             atten_dropout=atten_dropout,
@@ -322,11 +410,18 @@ class TransformerLM(nn.Module):
         tokens = torch.full((B, total_len), pad_token, dtype=torch.long, device=device)
 
         for block in self.blocks:
-            cache_device = block.atten.query.weight.device
-            head_dim = block.atten.head_dim
-            block.atten.cache = KVCache(
-                B, self.conf.maxlen, head_dim, self.conf.kv_heads, cache_device
-            )
+            if self.conf.mla is False:
+                cache_device = block.atten.query.weight.device
+                head_dim = block.atten.head_dim
+                block.atten.cache = KVCache(
+                    B, self.conf.maxlen, head_dim, self.conf.kv_heads, cache_device
+                )
+            else:
+                cache_device = block.atten.query.weight.device
+                head_dim = block.atten.head_dim
+                block.atten.cache = KVCache(
+                    B, self.conf.maxlen, head_dim, self.conf.num_heads, cache_device
+                )
 
         for k, v in enumerate(inp):
             tokens[k, : len(v)] = torch.tensor(v, dtype=torch.long, device=device)
