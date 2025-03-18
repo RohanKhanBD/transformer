@@ -410,11 +410,18 @@ class TransformerLM(nn.Module):
         tokens = torch.full((B, total_len), pad_token, dtype=torch.long, device=device)
 
         for block in self.blocks:
-            cache_device = block.atten.query.weight.device
-            head_dim = block.atten.head_dim
-            block.atten.cache = KVCache(
-                B, self.conf.maxlen, head_dim, self.conf.kv_heads, cache_device
-            )
+            if self.conf.mla is False:
+                cache_device = block.atten.query.weight.device
+                head_dim = block.atten.head_dim
+                block.atten.cache = KVCache(
+                    B, self.conf.maxlen, head_dim, self.conf.kv_heads, cache_device
+                )
+            else:
+                cache_device = block.atten.query.weight.device
+                head_dim = block.atten.head_dim
+                block.atten.cache = KVCache(
+                    B, self.conf.maxlen, head_dim, self.conf.num_heads, cache_device
+                )
 
         for k, v in enumerate(inp):
             tokens[k, : len(v)] = torch.tensor(v, dtype=torch.long, device=device)
