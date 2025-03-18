@@ -269,10 +269,10 @@ class FFN(nn.Module):
 # Transformer Block
 # ---------------------------------------
 class Block(nn.Module):
-    def __init__(self, conf: ModelConfig, mla: bool):
+    def __init__(self, conf: ModelConfig):
         super().__init__()
         self.norm1 = RMS_Norm(conf.embedding_dim, conf.eps)
-        if mla:
+        if conf.mla:
             self.atten = MultiHeadLatentAttention(conf)
         else:
             self.atten = MultiHeadAttention(conf)
@@ -302,6 +302,7 @@ class TransformerLM(nn.Module):
         n_layers: int,
         inter_dim: int,
         kv_heads: int | None = None,
+        mla: bool = False,
         kv_lora_rank: int | None = None,
         base: int = 10000,
         eps: float = 1e-6,
@@ -319,6 +320,7 @@ class TransformerLM(nn.Module):
             n_layers=n_layers,
             inter_dim=inter_dim,
             kv_heads=kv_heads,
+            mla=mla,
             kv_lora_rank=kv_lora_rank,
             base=base,
             eps=eps,
@@ -331,16 +333,15 @@ class TransformerLM(nn.Module):
         )
         return conf
 
-    def __init__(self, conf: ModelConfig, vocab_size: int, mla: bool = False):
+    def __init__(self, conf: ModelConfig, vocab_size: int):
         super().__init__()
         self.conf = conf
-        self.mla = mla
 
         self.tokemb = nn.Embedding(vocab_size, conf.embedding_dim)
 
         self.dp = nn.Dropout(conf.embedding_dropout)
 
-        self.blocks = nn.ModuleList([Block(conf, mla) for _ in range(conf.n_layers)])
+        self.blocks = nn.ModuleList([Block(conf) for _ in range(conf.n_layers)])
 
         self.out_norm = RMS_Norm(conf.embedding_dim, conf.eps)
         self.logits = nn.Linear(conf.embedding_dim, vocab_size, False)
@@ -431,7 +432,7 @@ class TransformerLM(nn.Module):
         tokens = torch.full((B, total_len), pad_token, dtype=torch.long, device=device)
 
         for block in self.blocks:
-            if self.mla is False:
+            if self.conf.mla is False:
                 cache_device = block.atten.query.weight.device
                 head_dim = block.atten.head_dim
                 block.atten.cache = KVCache(

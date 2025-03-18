@@ -130,6 +130,7 @@ class ModelConfig:
     # gqa
     kv_heads: int | None
     # mla
+    mla: bool
     kv_lora_rank: int | None
     # rope
     base: int
