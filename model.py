@@ -147,28 +147,6 @@ class MultiHeadAttention(nn.Module):
         return self.atten_dp.forward(output)
 
 
-# KVCompressedCache
-# ---------------------------------------
-class KVCompressedCache(nn.Module):
-    def __init__(
-        self,
-        batch_size: int,
-        maxlen: int,
-        kv_lora_rank: int,
-        cache_device: torch.device,
-    ):
-        super().__init__()
-        cache_shape = (batch_size, maxlen, kv_lora_rank)
-        self.register_buffer(
-            "kv_compressed_cache", torch.zeros(cache_shape).to(cache_device), False
-        )
-
-    def update(self, kv_compressed: torch.Tensor, start_pos: int):
-        T = kv_compressed.size(1)
-        self.kv_compressed_cache[:, start_pos : start_pos + T] = kv_compressed
-        return self.kv_compressed_cache[:, : start_pos + T]
-
-
 # Multi-Head Latent Attention
 # ---------------------------------------
 class MultiHeadLatentAttention(nn.Module):
@@ -203,7 +181,7 @@ class MultiHeadLatentAttention(nn.Module):
         self.head_dp = nn.Dropout(conf.atten_dropout)
         self.atten_dp = nn.Dropout(conf.atten_dropout)
 
-        self.cache: KVCompressedCache | None = None
+        self.cache: KVCache | None = None
 
     def forward(
         self,
@@ -219,9 +197,6 @@ class MultiHeadLatentAttention(nn.Module):
         kv_compressed = self.compress_kv.forward(x)
         kv_norm = self.kv_norm.forward(kv_compressed)
 
-        if self.cache is not None:
-            kv_norm = self.cache.update(kv_norm, start_pos)
-
         k = self.decompress_k.forward(kv_norm)
         v = self.decompress_v.forward(kv_norm)
 
@@ -232,6 +207,9 @@ class MultiHeadLatentAttention(nn.Module):
 
         q = apply_rope(q, freq_cis)
         k = apply_rope(k, freq_cis)
+
+        if self.cache is not None:
+            k, v = self.cache.update(k, v, start_pos)
 
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
 
@@ -432,17 +410,11 @@ class TransformerLM(nn.Module):
         tokens = torch.full((B, total_len), pad_token, dtype=torch.long, device=device)
 
         for block in self.blocks:
-            if self.conf.mla is False:
-                cache_device = block.atten.query.weight.device
-                head_dim = block.atten.head_dim
-                block.atten.cache = KVCache(
-                    B, self.conf.maxlen, head_dim, self.conf.kv_heads, cache_device
-                )
-            else:
-                cache_device = block.atten.query.weight.device
-                block.atten.cache = KVCompressedCache(
-                    B, self.conf.maxlen, self.conf.kv_lora_rank, cache_device
-                )
+            cache_device = block.atten.query.weight.device
+            head_dim = block.atten.head_dim
+            block.atten.cache = KVCache(
+                B, self.conf.maxlen, head_dim, self.conf.kv_heads, cache_device
+            )
 
         for k, v in enumerate(inp):
             tokens[k, : len(v)] = torch.tensor(v, dtype=torch.long, device=device)
