@@ -42,10 +42,11 @@ def main(fabric: Fabric):
         num_heads=16,
         n_layers=8,
         inter_dim=512,
+        mla=True,
         kv_lora_rank=4,
     )
     grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
-    model = TransformerLM(model_conf, tok.vocab_size, True)
+    model = TransformerLM(model_conf, tok.vocab_size)
     model: TransformerLM = torch.compile(
         model, backend=backend, disable=not compile_model
     )
