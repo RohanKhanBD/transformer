@@ -44,6 +44,7 @@ def main(fabric: Fabric):
         inter_dim=512,
         mla=True,
         kv_lora_rank=4,
+        flash=True if dev == "cuda" else False,
     )
     grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
     model = TransformerLM(model_conf, tok.vocab_size)
