@@ -4,6 +4,7 @@
 * Can tokenize a dataset using a pre-trained BPE-tokenizer.
 * Train a transformer model from scratch.
 * Generate text from a pre-trained model.
+* Use Multi-Head Latent Attention from DeepSeek.
 ### Some things this code can't do:
 * Load model's from Huggingface or anyother AI hub.
 * Fine-tune or train a model using RLHF.
