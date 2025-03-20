@@ -8,7 +8,7 @@ from lightning.fabric.loggers.tensorboard import TensorBoardLogger
 
 from tokenizer import Tokenizer
 from model import TransformerLM
-from utils import TextDataset, load, save, est_loss, get_lr
+from utils import TextDataset, load, save, est_loss, get_lr, set_seed
 
 from configuration import (
     steps,
@@ -22,6 +22,7 @@ from configuration import (
     warm_up,
     total_batch_size,
     batch_size,
+    seed,
     compile_model,
     backend,
     save_fie_name,
@@ -30,6 +31,7 @@ from configuration import (
 
 
 def main(fabric: Fabric):
+    set_seed(seed + fabric.global_rank)
     n_device = fabric.world_size
     tok = Tokenizer()
     tok.load()
