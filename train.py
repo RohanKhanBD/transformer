@@ -115,7 +115,7 @@ def main(fabric: Fabric):
             data_state = {
                 "train_data": train_data,
                 "val_data": val_data,
-                "step": i,
+                "step": i + 1,
                 "val_i": val_i,
             }
             save(checkpoint, save_fie_name)
