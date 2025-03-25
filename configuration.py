@@ -52,8 +52,8 @@ save_fie_name = "nanogpt"
 data_file_name = "encoded_data"
 
 # dataset path in huggingface datasets
-dataset_path_huggingface = "openwebtext"
-dataset_sub_set: str | None = None
+dataset_path_huggingface = "HuggingFaceFW/fineweb-edu"
+dataset_sub_set: str | None = "sample-10BT"
 
 # ---------------------------------------
 # Bools
@@ -62,4 +62,4 @@ dataset_sub_set: str | None = None
 compile_model = True
 
 # trusting datasets remote code
-trust_remote_code = True
+trust_remote_code = False
