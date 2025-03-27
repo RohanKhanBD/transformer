@@ -2,14 +2,14 @@
 # Ints
 # ---------------------------------------
 # training params
-steps: int = 17831
+steps: int = 20087
 
 # eval params
 eval_rate: int = 50
 eval_steps: int = 100
 
 # saving rate
-save_rate: int = 100
+save_rate: int = 10
 
 # learning rate schedule params
 warm_up: int = 715
