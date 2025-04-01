@@ -5,6 +5,7 @@
 * Train a transformer model from scratch.
 * Generate text from a pre-trained model.
 * Use Multi-Head Latent Attention from DeepSeek.
+* Use Multi-GPU training using fabric.
 ### Some things this code can't do:
 * Load model's from Huggingface or anyother AI hub.
 * Fine-tune or train a model using RLHF.
