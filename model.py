@@ -279,6 +279,9 @@ class TransformerLM(nn.Module):
         num_heads: int,
         n_layers: int,
         inter_dim: int,
+        window_size: int,
+        global_: int,
+        local_: int,
         kv_heads: int | None = None,
         mla: bool = False,
         kv_lora_rank: int | None = None,
@@ -297,6 +300,9 @@ class TransformerLM(nn.Module):
             num_heads=num_heads,
             n_layers=n_layers,
             inter_dim=inter_dim,
+            window_size=window_size,
+            global_=global_,
+            local_=local_,
             kv_heads=kv_heads,
             mla=mla,
             kv_lora_rank=kv_lora_rank,
@@ -338,6 +344,13 @@ class TransformerLM(nn.Module):
         self.register_buffer(
             "mask", torch.full((conf.maxlen, conf.maxlen), -float("inf")).triu(1), False
         )
+        self.register_buffer(
+            "window",
+            torch.full((conf.maxlen, conf.maxlen), -float("inf")).tril(
+                -conf.window_size
+            ),
+            False,
+        )
 
     def init_weights(self, module: nn.Module):
         if isinstance(module, nn.Linear):
@@ -361,9 +374,16 @@ class TransformerLM(nn.Module):
         block = self.dp.forward(emb)
 
         mask = self.mask[:T, :T].to(x.device)
+        window = self.window[:T, :T].to(x.device)
 
+        i = 0
         for b in self.blocks:
-            block = b.forward(block, freq_cis, 0, mask)
+            if i % self.conf.local_ < self.conf.global_:
+                block = b.forward(block, freq_cis, 0, mask)
+            else:
+                windowmask = mask + window
+                block = b.forward(block, freq_cis, 0, windowmask)
+            i += 1
 
         out_norm = self.out_norm.forward(block)
         logits = self.logits.forward(out_norm)
@@ -382,11 +402,20 @@ class TransformerLM(nn.Module):
         mask = self.mask[start_pos : start_pos + T, start_pos : start_pos + T].to(
             x.device
         )
+        window = self.window[start_pos : start_pos + T, start_pos : start_pos + T].to(
+            x.device
+        )
         if T > 1:
             mask = torch.hstack((torch.zeros((T, start_pos), device=x.device), mask))
+            window = torch.hstack((torch.zeros((T, start_pos)), window))
 
+        i = 0
         for b in self.blocks:
-            block = b.forward(block, freq_cis, start_pos, mask)
+            if i % self.conf.local_ < self.conf.global_:
+                block = b.forward(block, freq_cis, start_pos, mask)
+            else:
+                windowmask = mask + window
+                block = b.forward(block, freq_cis, start_pos, windowmask)
 
         out_norm = self.out_norm.forward(block)
         logits = self.logits.forward(out_norm)

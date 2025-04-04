@@ -127,6 +127,9 @@ class ModelConfig:
     num_heads: int
     n_layers: int
     inter_dim: int
+    window_size: int
+    global_: int
+    local_: int
     # gqa
     kv_heads: int | None
     # mla
