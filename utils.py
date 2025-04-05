@@ -1,5 +1,6 @@
 import os
 import torch
+from enum import Enum
 from math import pi, cos
 from dataclasses import dataclass
 
@@ -119,6 +120,11 @@ def top_p(probs: torch.Tensor, p: float):
     return next_token
 
 
+class AttentionMask(Enum):
+    Local = 1
+    Global = 2
+
+
 @dataclass
 class ModelConfig:
     # Common parameters
@@ -128,8 +134,6 @@ class ModelConfig:
     n_layers: int
     inter_dim: int
     window_size: int
-    global_: int
-    local_: int
     # gqa
     kv_heads: int | None
     # mla

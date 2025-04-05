@@ -3,7 +3,7 @@ from torch import nn
 from tqdm import tqdm
 from math import sqrt
 from torch.nn import functional as F
-from utils import ModelConfig, top_p
+from utils import AttentionMask, ModelConfig, top_p
 
 
 # Rotary positional encoding
@@ -78,8 +78,9 @@ class KVCache(nn.Module):
 # Multi-Head Attention
 # ---------------------------------------
 class MultiHeadAttention(nn.Module):
-    def __init__(self, conf: ModelConfig):
+    def __init__(self, conf: ModelConfig, type_):
         super().__init__()
+        self.type_ = type_
         self.conf = conf
         self.head_dim = conf.embedding_dim // conf.num_heads
 
@@ -113,6 +114,7 @@ class MultiHeadAttention(nn.Module):
         freq_cis: torch.Tensor,
         start_pos: int,
         mask: torch.Tensor,
+        window: torch.Tensor,
     ):
         B, T, C = x.shape
         q, k, v = self.query.forward(x), self.key.forward(x), self.value.forward(x)
@@ -134,11 +136,18 @@ class MultiHeadAttention(nn.Module):
 
         if self.conf.flash:
             output = F.scaled_dot_product_attention(
-                q, k, v, attn_mask=mask, dropout_p=self.conf.atten_dropout
+                q,
+                k,
+                v,
+                attn_mask=mask if self.type_ == AttentionMask.Global else window,
+                dropout_p=self.conf.atten_dropout,
             )
         else:
             atte = q @ k.transpose(-2, -1) * (1 / sqrt(self.head_dim))
-            atte = atte + mask
+            if self.type_ == AttentionMask.Global:
+                atte = atte + mask
+            else:
+                atte = atte + window
             atte = self.head_dp.forward(F.softmax(atte, -1))
             output = atte @ v
 
@@ -150,8 +159,9 @@ class MultiHeadAttention(nn.Module):
 # Multi-Head Latent Attention
 # ---------------------------------------
 class MultiHeadLatentAttention(nn.Module):
-    def __init__(self, conf: ModelConfig):
+    def __init__(self, conf: ModelConfig, type_):
         super().__init__()
+        self.type_ = type_
         self.conf = conf
         self.head_dim = conf.embedding_dim // conf.num_heads
         assert self.head_dim * conf.num_heads == conf.embedding_dim, (
@@ -189,6 +199,7 @@ class MultiHeadLatentAttention(nn.Module):
         freq_cis: torch.Tensor,
         start_pos: int,
         mask: torch.Tensor,
+        window: torch.Tensor,
     ):
         B, T, C = x.shape
         q = self.query.forward(x)
@@ -215,11 +226,18 @@ class MultiHeadLatentAttention(nn.Module):
 
         if self.conf.flash:
             output = F.scaled_dot_product_attention(
-                q, k, v, attn_mask=mask, dropout_p=self.conf.atten_dropout
+                q,
+                k,
+                v,
+                attn_mask=mask if self.type_ == AttentionMask.Global else window,
+                dropout_p=self.conf.atten_dropout,
             )
         else:
             atten = q @ k.transpose(-2, -1) * (1 / sqrt(self.head_dim))
-            atten = atten + mask
+            if self.type_ == AttentionMask.Global:
+                atten = atten + mask
+            else:
+                atten = atten + window
             atten = self.head_dp.forward(F.softmax(atten, -1))
             output = atten @ v
 
@@ -247,13 +265,13 @@ class FFN(nn.Module):
 # Transformer Block
 # ---------------------------------------
 class Block(nn.Module):
-    def __init__(self, conf: ModelConfig):
+    def __init__(self, conf: ModelConfig, atten_type):
         super().__init__()
         self.norm1 = RMS_Norm(conf.embedding_dim, conf.eps)
         if conf.mla:
-            self.atten = MultiHeadLatentAttention(conf)
+            self.atten = MultiHeadLatentAttention(conf, atten_type)
         else:
-            self.atten = MultiHeadAttention(conf)
+            self.atten = MultiHeadAttention(conf, atten_type)
         self.norm2 = RMS_Norm(conf.embedding_dim, conf.eps)
         self.ffn = FFN(conf)
 
@@ -263,8 +281,11 @@ class Block(nn.Module):
         freq_cis: torch.Tensor,
         start_pos: int,
         mask: torch.Tensor,
+        window: torch.Tensor,
     ):
-        x = x + self.atten.forward(self.norm1.forward(x), freq_cis, start_pos, mask)
+        x = x + self.atten.forward(
+            self.norm1.forward(x), freq_cis, start_pos, mask, window
+        )
         x = x + self.ffn.forward(self.norm2.forward(x))
         return x
 
@@ -280,8 +301,6 @@ class TransformerLM(nn.Module):
         n_layers: int,
         inter_dim: int,
         window_size: int,
-        global_: int,
-        local_: int,
         kv_heads: int | None = None,
         mla: bool = False,
         kv_lora_rank: int | None = None,
@@ -301,8 +320,6 @@ class TransformerLM(nn.Module):
             n_layers=n_layers,
             inter_dim=inter_dim,
             window_size=window_size,
-            global_=global_,
-            local_=local_,
             kv_heads=kv_heads,
             mla=mla,
             kv_lora_rank=kv_lora_rank,
@@ -317,7 +334,9 @@ class TransformerLM(nn.Module):
         )
         return conf
 
-    def __init__(self, conf: ModelConfig, vocab_size: int):
+    def __init__(
+        self, conf: ModelConfig, vocab_size: int, atten_types: list[AttentionMask]
+    ):
         super().__init__()
         self.conf = conf
 
@@ -325,7 +344,10 @@ class TransformerLM(nn.Module):
 
         self.dp = nn.Dropout(conf.embedding_dropout)
 
-        self.blocks = nn.ModuleList([Block(conf) for _ in range(conf.n_layers)])
+        self.blocks = nn.ModuleList()
+        for i in range(conf.n_layers):
+            at = atten_types[i % len(atten_types)]
+            self.blocks.append(Block(conf, at))
 
         self.out_norm = RMS_Norm(conf.embedding_dim, conf.eps)
         self.logits = nn.Linear(conf.embedding_dim, vocab_size, False)
@@ -376,14 +398,8 @@ class TransformerLM(nn.Module):
         mask = self.mask[:T, :T].to(x.device)
         window = self.window[:T, :T].to(x.device)
 
-        i = 0
         for b in self.blocks:
-            if i % self.conf.local_ < self.conf.global_:
-                block = b.forward(block, freq_cis, 0, mask)
-            else:
-                windowmask = mask + window
-                block = b.forward(block, freq_cis, 0, windowmask)
-            i += 1
+            block = b.forward(block, freq_cis, 0, mask, window)
 
         out_norm = self.out_norm.forward(block)
         logits = self.logits.forward(out_norm)
@@ -407,15 +423,12 @@ class TransformerLM(nn.Module):
         )
         if T > 1:
             mask = torch.hstack((torch.zeros((T, start_pos), device=x.device), mask))
-            window = torch.hstack((torch.zeros((T, start_pos)), window))
+            window = torch.hstack(
+                (torch.zeros((T, start_pos), device=x.device), window)
+            )
 
-        i = 0
         for b in self.blocks:
-            if i % self.conf.local_ < self.conf.global_:
-                block = b.forward(block, freq_cis, start_pos, mask)
-            else:
-                windowmask = mask + window
-                block = b.forward(block, freq_cis, start_pos, windowmask)
+            block = b.forward(block, freq_cis, start_pos, mask, window)
 
         out_norm = self.out_norm.forward(block)
         logits = self.logits.forward(out_norm)
