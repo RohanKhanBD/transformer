@@ -399,7 +399,7 @@ class TransformerLM(nn.Module):
         window = self.window[:T, :T].to(x.device)
 
         for b in self.blocks:
-            block = b.forward(block, freq_cis, 0, mask, window)
+            block = b.forward(block, freq_cis, 0, mask, mask + window)
 
         out_norm = self.out_norm.forward(block)
         logits = self.logits.forward(out_norm)
@@ -428,7 +428,7 @@ class TransformerLM(nn.Module):
             )
 
         for b in self.blocks:
-            block = b.forward(block, freq_cis, start_pos, mask, window)
+            block = b.forward(block, freq_cis, start_pos, mask, mask + window)
 
         out_norm = self.out_norm.forward(block)
         logits = self.logits.forward(out_norm)
