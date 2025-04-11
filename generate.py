@@ -2,7 +2,7 @@ import torch
 from tokenizer import Tokenizer
 from model import TransformerLM
 from argparse import ArgumentParser
-from utils import load, ModelConfig, AttentionMask
+from utils import load, ModelConfig
 
 
 def main():
@@ -15,18 +15,7 @@ def main():
         "nanogpt", "model_config.pt", False, map_location=dev.type
     )
     model_config.flash = False
-    model = TransformerLM(
-        model_config,
-        tokenizer.vocab_size,
-        [
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Global,
-        ],
-    ).to(dev)
+    model = TransformerLM(model_config, tokenizer.vocab_size).to(dev)
     model.load_state_dict(checkpoint["model"])
     model.eval()
 

@@ -312,6 +312,7 @@ class TransformerLM(nn.Module):
         flash: bool = False,
         atten_bias: bool = False,
         ffn_bias: bool = False,
+        atten_types: list[AttentionMask] = [AttentionMask.Global],
     ):
         conf = ModelConfig(
             maxlen=maxlen,
@@ -331,12 +332,11 @@ class TransformerLM(nn.Module):
             flash=flash,
             atten_bias=atten_bias,
             ffn_bias=ffn_bias,
+            atten_types=atten_types,
         )
         return conf
 
-    def __init__(
-        self, conf: ModelConfig, vocab_size: int, atten_types: list[AttentionMask]
-    ):
+    def __init__(self, conf: ModelConfig, vocab_size: int):
         super().__init__()
         self.conf = conf
 
@@ -346,7 +346,7 @@ class TransformerLM(nn.Module):
 
         self.blocks = nn.ModuleList()
         for i in range(conf.n_layers):
-            at = atten_types[i % len(atten_types)]
+            at = conf.atten_types[i % len(conf.atten_types)]
             self.blocks.append(Block(conf, at))
 
         self.out_norm = RMS_Norm(conf.embedding_dim, conf.eps)

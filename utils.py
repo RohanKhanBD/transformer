@@ -151,3 +151,5 @@ class ModelConfig:
     # use bias
     atten_bias: bool
     ffn_bias: bool
+    # attention types
+    atten_types: list[AttentionMask]

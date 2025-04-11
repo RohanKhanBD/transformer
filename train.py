@@ -48,12 +48,7 @@ def main(fabric: Fabric):
         mla=True,
         kv_lora_rank=4,
         flash=True if dev == "cuda" else False,
-    )
-    grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
-    model = TransformerLM(
-        model_conf,
-        tok.vocab_size,
-        [
+        atten_types=[
             AttentionMask.Local,
             AttentionMask.Local,
             AttentionMask.Local,
@@ -62,6 +57,8 @@ def main(fabric: Fabric):
             AttentionMask.Global,
         ],
     )
+    grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
+    model = TransformerLM(model_conf, tok.vocab_size)
     model: TransformerLM = torch.compile(
         model, backend=backend, disable=not compile_model
     )
