@@ -1,4 +1,4 @@
-## This code creats a simple Transformer Large Language Model using Pytorch and Lighting ai.
+## This code creates a simple Transformer Large Language Model using Pytorch and Lighting ai.
 ### Some things this code does:
 * Can train a BPE-tokenizer from scratch.
 * Can tokenize a dataset using a pre-trained BPE-tokenizer.
