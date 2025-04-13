@@ -8,7 +8,7 @@ from lightning.fabric.loggers.tensorboard import TensorBoardLogger
 
 from tokenizer import Tokenizer
 from model import TransformerLM
-from utils import TextDataset, load, save, est_loss, get_lr, set_seed
+from utils import TextDataset, AttentionMask, load, save, est_loss, get_lr, set_seed
 
 from configuration import (
     steps,
@@ -44,9 +44,18 @@ def main(fabric: Fabric):
         num_heads=16,
         n_layers=8,
         inter_dim=512,
+        window_size=512,
         mla=True,
         kv_lora_rank=4,
         flash=True if dev == "cuda" else False,
+        atten_types=[
+            AttentionMask.Local,
+            AttentionMask.Local,
+            AttentionMask.Local,
+            AttentionMask.Local,
+            AttentionMask.Local,
+            AttentionMask.Global,
+        ],
     )
     grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
     model = TransformerLM(model_conf, tok.vocab_size)

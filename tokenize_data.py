@@ -14,13 +14,6 @@ from configuration import (
     non_encoded_dataset_shard_size,
 )
 
-train_data = datasets.load_dataset(
-    dataset_path_huggingface, dataset_sub_set, split="train"
-)
-
-tok = Tokenizer()
-tok.load()
-
 
 def tokenize(token):
     data = [tok.special_token["<|endoftext|>"]]
@@ -29,6 +22,13 @@ def tokenize(token):
 
 
 if __name__ == "__main__":
+    train_data = datasets.load_dataset(
+        dataset_path_huggingface, dataset_sub_set, split="train"
+    )
+
+    tok = Tokenizer()
+    tok.load()
+
     nproc = max(1, os.cpu_count() // 2)
     print(nproc)
     with Pool(nproc) as p:
