@@ -134,6 +134,10 @@ class ModelConfig:
     n_layers: int
     inter_dim: int
     window_size: int
+    # moe
+    use_moe: bool
+    n_experts: int | None
+    active_experts: int | None
     # gqa
     kv_heads: int | None
     # mla
