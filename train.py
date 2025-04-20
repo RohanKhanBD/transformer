@@ -46,10 +46,10 @@ def main(fabric: Fabric):
         inter_dim=512,
         window_size=512,
         use_moe=True,
-        n_experts=8,
+        n_experts=4,
         active_experts=2,
         mla=True,
-        kv_lora_rank=4,
+        kv_lora_rank=32,
         flash=True if dev == "cuda" else False,
         atten_types=[
             AttentionMask.Local,
