@@ -137,6 +137,7 @@ class ModelConfig:
     # moe
     use_moe: bool
     n_experts: int | None
+    expert_inter_dim: int | None
     active_experts: int | None
     # gqa
     kv_heads: int | None

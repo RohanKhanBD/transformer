@@ -262,6 +262,26 @@ class FFN(nn.Module):
         return x
 
 
+# Expert Network
+class Expert(nn.Module):
+    def __init__(self, conf: ModelConfig):
+        self.ln1 = nn.Linear(
+            conf.embedding_dim, conf.expert_inter_dim, bias=conf.ffn_bias
+        )
+        self.ln2 = nn.Linear(
+            conf.embedding_dim, conf.expert_inter_dim, bias=conf.ffn_bias
+        )
+        self.proj = nn.Linear(
+            conf.expert_inter_dim, conf.embedding_dim, bias=conf.ffn_bias
+        )
+        self.dropout = nn.Dropout(conf.ffn_dropout)
+
+    def forward(self, x: torch.Tensor):
+        x = F.silu(self.ln1.forward(x)) * self.ln2.forward(x)
+        x = self.dropout.forward(self.proj.forward(x))
+        return x
+
+
 # Mixture-Of-Experts
 # ---------------------------------------
 class MoE(nn.Module):
@@ -269,7 +289,7 @@ class MoE(nn.Module):
         super().__init__()
         self.conf = conf
         self.gate = nn.Linear(conf.embedding_dim, conf.n_experts, bias=False)
-        self.experts = nn.ModuleList([FFN(conf) for _ in range(conf.n_experts)])
+        self.experts = nn.ModuleList([Expert(conf) for _ in range(conf.n_experts)])
         self.shared_expert = FFN(conf)
 
     def forward(self, x: torch.Tensor):
@@ -340,6 +360,7 @@ class TransformerLM(nn.Module):
         window_size: int,
         use_moe: bool = False,
         n_experts: int | None = None,
+        expert_inter_dim: int | None = None,
         active_experts: int | None = None,
         kv_heads: int | None = None,
         mla: bool = False,
@@ -363,6 +384,7 @@ class TransformerLM(nn.Module):
             window_size=window_size,
             use_moe=use_moe,
             n_experts=n_experts,
+            expert_inter_dim=expert_inter_dim,
             active_experts=active_experts,
             kv_heads=kv_heads,
             mla=mla,
