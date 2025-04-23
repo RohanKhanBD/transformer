@@ -265,6 +265,7 @@ class FFN(nn.Module):
 # Expert Network
 class Expert(nn.Module):
     def __init__(self, conf: ModelConfig):
+        super().__init__()
         self.ln1 = nn.Linear(
             conf.embedding_dim, conf.expert_inter_dim, bias=conf.ffn_bias
         )
