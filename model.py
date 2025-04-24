@@ -262,6 +262,59 @@ class FFN(nn.Module):
         return x
 
 
+# Expert Network
+class Expert(nn.Module):
+    def __init__(self, conf: ModelConfig):
+        super().__init__()
+        self.ln1 = nn.Linear(
+            conf.embedding_dim, conf.expert_inter_dim, bias=conf.ffn_bias
+        )
+        self.ln2 = nn.Linear(
+            conf.embedding_dim, conf.expert_inter_dim, bias=conf.ffn_bias
+        )
+        self.proj = nn.Linear(
+            conf.expert_inter_dim, conf.embedding_dim, bias=conf.ffn_bias
+        )
+        self.dropout = nn.Dropout(conf.ffn_dropout)
+
+    def forward(self, x: torch.Tensor):
+        x = F.silu(self.ln1.forward(x)) * self.ln2.forward(x)
+        x = self.dropout.forward(self.proj.forward(x))
+        return x
+
+
+# Mixture-Of-Experts
+# ---------------------------------------
+class MoE(nn.Module):
+    def __init__(self, conf: ModelConfig):
+        super().__init__()
+        self.conf = conf
+        self.gate = nn.Linear(conf.embedding_dim, conf.n_experts, bias=False)
+        self.experts = nn.ModuleList([Expert(conf) for _ in range(conf.n_experts)])
+        self.shared_expert = FFN(conf)
+
+    def forward(self, x: torch.Tensor):
+        B, T, C = x.shape
+
+        x = x.view(-1, C)
+        if self.training:
+            x = x + torch.randn_like(x)
+        y = torch.zeros_like(x)
+
+        scores = F.softmax(self.gate.forward(x), dim=-1)
+        indices = torch.topk(scores, k=self.conf.active_experts, dim=-1)[1]
+        weights = scores.gather(1, indices)
+
+        for i in range(0, self.conf.n_experts):
+            idx, top = torch.where(indices == i)
+            expert = self.experts[i]
+            y[idx] += expert.forward(x[idx]) * weights[idx, top, None]
+
+        z = self.shared_expert.forward(x)
+
+        return (y + z).view(B, T, C)
+
+
 # Transformer Block
 # ---------------------------------------
 class Block(nn.Module):
@@ -273,7 +326,10 @@ class Block(nn.Module):
         else:
             self.atten = MultiHeadAttention(conf, atten_type)
         self.norm2 = RMS_Norm(conf.embedding_dim, conf.eps)
-        self.ffn = FFN(conf)
+        if conf.use_moe:
+            self.ffn = MoE(conf)
+        else:
+            self.ffn = FFN(conf)
 
     def forward(
         self,
@@ -301,6 +357,10 @@ class TransformerLM(nn.Module):
         n_layers: int,
         inter_dim: int,
         window_size: int,
+        use_moe: bool = False,
+        n_experts: int | None = None,
+        expert_inter_dim: int | None = None,
+        active_experts: int | None = None,
         kv_heads: int | None = None,
         mla: bool = False,
         kv_lora_rank: int | None = None,
@@ -321,6 +381,10 @@ class TransformerLM(nn.Module):
             n_layers=n_layers,
             inter_dim=inter_dim,
             window_size=window_size,
+            use_moe=use_moe,
+            n_experts=n_experts,
+            expert_inter_dim=expert_inter_dim,
+            active_experts=active_experts,
             kv_heads=kv_heads,
             mla=mla,
             kv_lora_rank=kv_lora_rank,

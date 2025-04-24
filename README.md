@@ -4,8 +4,10 @@
 * Can tokenize a dataset using a pre-trained BPE-tokenizer.
 * Train a transformer model from scratch.
 * Generate text from a pre-trained model.
+* Use Mixture-of-Experts.
 * Use Multi-Head Latent Attention from DeepSeek.
 * Use Multi-GPU training using fabric.
+* Use Mixed-Precision training.
 ### Some things this code can't do:
 * Load model's from Huggingface or anyother AI hub.
 * Fine-tune or train a model using RLHF.
