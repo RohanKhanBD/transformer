@@ -297,6 +297,8 @@ class MoE(nn.Module):
         B, T, C = x.shape
 
         x = x.view(-1, C)
+        if self.training:
+            x = x + torch.randn_like(x)
         y = torch.zeros_like(x)
 
         scores = F.softmax(self.gate.forward(x), dim=-1)
