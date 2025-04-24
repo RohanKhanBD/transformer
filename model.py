@@ -312,7 +312,8 @@ class MoE(nn.Module):
             if conuts[i] == 0:
                 continue
             idx, top = torch.where(indices == i)
-            y[idx] += self.experts[i].forward(x[idx]) * weights[idx, top, None]
+            expert = self.experts[i]
+            y[idx] += expert.forward(x[idx]) * weights[idx, top, None]
 
         z = self.shared_expert.forward(x)
 
