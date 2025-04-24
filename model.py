@@ -305,12 +305,7 @@ class MoE(nn.Module):
         indices = torch.topk(scores, k=self.conf.active_experts, dim=-1)[1]
         weights = scores.gather(1, indices)
 
-        conuts = torch.bincount(
-            indices.flatten(), minlength=self.conf.n_experts
-        ).tolist()
         for i in range(0, self.conf.n_experts):
-            if conuts[i] == 0:
-                continue
             idx, top = torch.where(indices == i)
             expert = self.experts[i]
             y[idx] += expert.forward(x[idx]) * weights[idx, top, None]
