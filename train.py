@@ -43,10 +43,8 @@ def main(fabric: Fabric):
         embedding_dim=512,
         num_heads=16,
         n_layers=8,
-        inter_dim=512,
-        window_size=512,
-        mla=True,
-        kv_lora_rank=32,
+        inter_dim=512 * 4,
+        kv_heads=4,
         flash=is_cuda,
         atten_types=[
             AttentionMask.Local,
