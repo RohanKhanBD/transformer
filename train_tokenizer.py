@@ -3,7 +3,7 @@ from tokenizer import Tokenizer
 from configuration import (
     dataset_path_huggingface,
     dataset_sub_set,
-    tokenizer_train_shard_size,
+    tokenizer_train_char_size,
     trust_remote_code,
 )
 
@@ -13,20 +13,27 @@ if __name__ == "__main__":
         dataset_sub_set,
         split="train",
         trust_remote_code=trust_remote_code,
+        streaming=True,
     )
     print(data_sets)
 
     inp = int(input("Vocab size: "))
     tok = Tokenizer(inp)
 
+    idx = 0
     trained = False
-    for shard_i in range(tokenizer_train_shard_size):
-        chunks = data_sets.shard(tokenizer_train_shard_size, shard_i)["text"]
-        chunk_str = "\n".join(chunks)
-        trained = tok.train(chunk_str)
-        print(f"Shard {shard_i} trained")
-        if trained:
-            break
+    while not trained:
+        chr_len = 0
+        text_data = ""
+        for text in data_sets:
+            text_data += text["text"] + "\n"
+            chr_len = len(text_data)
+            print(chr_len)
+            if chr_len >= tokenizer_train_char_size:
+                break
+        trained = tok.train(text_data)
+        idx += 1
+        print(f"trained on {tokenizer_train_char_size * idx} char")
     tok.regester_special_token({"<pad>": 0, "<|endoftext|>": 1})
     print(tok.vocab)
     print(tok.special_token)
