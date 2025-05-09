@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     idx = 0
     trained = False
-    while not trained:
+    while True:
         chr_len = 0
         text_data = ""
         for text in data_sets:
@@ -32,6 +32,8 @@ if __name__ == "__main__":
             if chr_len >= tokenizer_train_char_size:
                 break
         trained = tok.train(text_data)
+        if trained:
+            break
         idx += 1
         print(f"trained on {tokenizer_train_char_size * idx} char")
     tok.regester_special_token({"<pad>": 0, "<|endoftext|>": 1})
