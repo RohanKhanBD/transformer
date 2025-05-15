@@ -63,8 +63,6 @@ if __name__ == "__main__":
                     bar = None
                     c_data[0 : len(token) - reminder] = np.array(token[reminder:])
                     precessed_size = len(token) - reminder
-        if precessed_size != 0:
-            shard_type = "val" if shard_pos == 0 else "train"
-            save(
-                c_data[:precessed_size], "encoded_data", f"{shard_type}_{shard_pos}.pt"
-            )
+    if precessed_size != 0:
+        shard_type = "val" if shard_pos == 0 else "train"
+        save(c_data[:precessed_size], "encoded_data", f"{shard_type}_{shard_pos}.pt")
