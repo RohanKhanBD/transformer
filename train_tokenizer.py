@@ -13,6 +13,7 @@ if __name__ == "__main__":
         dataset_sub_set,
         split="train",
         trust_remote_code=trust_remote_code,
+        streaming=True,
     )
     print(data_sets)
 
@@ -20,13 +21,14 @@ if __name__ == "__main__":
     tok = Tokenizer(inp)
 
     trained = False
-    for shard_i in range(tokenizer_train_shard_size):
-        chunks = data_sets.shard(tokenizer_train_shard_size, shard_i)["text"]
-        chunk_str = "\n".join(chunks)
-        trained = tok.train(chunk_str)
-        print(f"Shard {shard_i} trained")
-        if trained:
-            break
+    while not trained:
+        text_point = ""
+        for text in data_sets:
+            text_point += text["text"] + "\n"
+            if len(text_point) > tokenizer_train_shard_size:
+                break
+        trained = tok.train(text_point)
+        print(trained)
     tok.regester_special_token({"<pad>": 0, "<|endoftext|>": 1})
     print(tok.vocab)
     print(tok.special_token)

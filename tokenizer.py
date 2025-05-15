@@ -109,6 +109,9 @@ class Tokenizer:
             self.merges[pair] = idx
             print(f"index:{i + 1}/{num_merges} | pair:{pair} => {pair[0] + pair[1]}")
             i += 1
+        if len(self.vocab) == self.vocab_size:
+            return True
+        return False
 
     def bpe(self, text_: str):
         if text_ in self.catch:
