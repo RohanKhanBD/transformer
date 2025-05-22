@@ -356,7 +356,7 @@ class TransformerLM(nn.Module):
         num_heads: int,
         n_layers: int,
         inter_dim: int,
-        window_size: int,
+        window_size: int = 0,
         use_moe: bool = False,
         n_experts: int | None = None,
         expert_inter_dim: int | None = None,

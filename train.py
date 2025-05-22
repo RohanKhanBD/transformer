@@ -44,6 +44,7 @@ def main(fabric: Fabric):
         num_heads=16,
         n_layers=8,
         inter_dim=512 * 4,
+        window_size=512,
         kv_heads=4,
         flash=is_cuda,
         atten_types=[
