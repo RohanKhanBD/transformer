@@ -47,14 +47,7 @@ def main(fabric: Fabric):
         window_size=512,
         kv_heads=4,
         flash=is_cuda,
-        atten_types=[
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Global,
-        ],
+        atten_types=[AttentionMask.Global],
     )
     grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
     model = TransformerLM(model_conf, tok.vocab_size)
