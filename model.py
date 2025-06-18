@@ -297,11 +297,12 @@ class MoE(nn.Module):
         B, T, C = x.shape
 
         x = x.view(-1, C)
-        if self.training:
-            x = x + torch.randn_like(x)
         y = torch.zeros_like(x)
 
-        scores = F.softmax(self.gate.forward(x), dim=-1)
+        scores = self.gate.forward(x)
+        if self.training:
+            scores = scores + torch.randn_like(scores)
+        scores = F.softmax(scores, dim=-1)
         indices = torch.topk(scores, k=self.conf.active_experts, dim=-1)[1]
         weights = scores.gather(1, indices)
 
