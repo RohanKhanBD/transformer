@@ -79,7 +79,9 @@ def get_lr(iter: int, steps: int, lr: float, min_lr: float, warm_up: int):
 
 
 def set_seed(seed: int):
-    return torch.manual_seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
 
 
 def save(obj: object, file: str, name: str = "ckp.pt"):
