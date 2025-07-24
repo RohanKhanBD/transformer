@@ -24,9 +24,6 @@ seed = 1337
 # encoded dataset shard size
 encoded_dataset_shard_size = int(1e8)
 
-# non encoded dataset shard size
-non_encoded_dataset_shard_size = 500
-
 # tokenizer train shard size
 tokenizer_train_shard_size = 5_000_000
 
