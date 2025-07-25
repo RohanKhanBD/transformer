@@ -107,14 +107,14 @@ def main(fabric: Fabric):
     for i in range(train_i, steps + 1):
         ploss = 0.0
         n_lr = get_lr(i, steps, lr, min_lr, warm_up)
-        fabric.log("learning rate", n_lr, step=i)
+        fabric.log("model/lr", n_lr, step=i)
         for param_group in optim.param_groups:
             param_group["lr"] = n_lr
 
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(model, val_data, val_data_iter, eval_steps)
             fabric.all_reduce(e_loss, reduce_op="mean")
-            fabric.log("val loss", e_loss.item(), step=val_i)
+            fabric.log("loss/val", e_loss.item(), step=val_i)
             val_i += 1
             fabric.print(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
 
@@ -149,10 +149,10 @@ def main(fabric: Fabric):
             ploss += loss.detach()
 
         fabric.all_reduce(ploss, reduce_op="mean")
-        fabric.log("train loss", ploss, step=i)
+        fabric.log("loss/train", ploss, step=i)
 
         norm: torch.Tensor = fabric.clip_gradients(model, optim, max_norm=1.0)
-        fabric.log("grad norm", norm.item(), step=i)
+        fabric.log("model/norm", norm.item(), step=i)
         optim.step()
         optim.zero_grad()
 
