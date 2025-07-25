@@ -56,6 +56,9 @@ def main(fabric: Fabric):
             AttentionMask.Global,
         ],
     )
+    assert total_batch_size % (batch_size * model_conf.maxlen * n_device) == 0, (
+        "total_batch_size has divisible by batch_size * maxlen * n_device"
+    )
     grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
     model = TransformerLM(model_conf, tok.vocab_size)
     model: TransformerLM = torch.compile(
