@@ -135,7 +135,9 @@ def main(fabric: Fabric):
 
         for grad_i in range(grad_ecum):
             no_sync_enable = grad_i < grad_ecum - 1
-            with fabric.no_backward_sync(model, enabled=no_sync_enable):
+            with fabric.no_backward_sync(
+                model, enabled=no_sync_enable if is_cuda else False
+            ):
                 _, loss = model.forward(x, y)
                 loss = loss / grad_ecum
                 fabric.backward(loss)
