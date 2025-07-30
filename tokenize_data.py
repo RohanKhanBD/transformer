@@ -8,6 +8,7 @@ from tokenizer import Tokenizer
 
 from multiprocessing import Pool
 from configuration import (
+    data_file_name,
     dataset_path_huggingface,
     dataset_sub_set,
     encoded_dataset_shard_size,
@@ -52,11 +53,11 @@ if __name__ == "__main__":
                 c_data[precessed_size : precessed_size + reminder] = np.array(
                     token[:reminder]
                 )
-                save(c_data, "encoded_data", f"{shard_type}_{shard_pos}.pt")
+                save(c_data, data_file_name, f"{shard_type}_{shard_pos}.pt")
                 shard_pos += 1
                 bar = None
                 c_data[0 : len(token) - reminder] = np.array(token[reminder:])
                 precessed_size = len(token) - reminder
     if precessed_size != 0:
         shard_type = "val" if shard_pos == 0 else "train"
-        save(c_data[:precessed_size], "encoded_data", f"{shard_type}_{shard_pos}.pt")
+        save(c_data[:precessed_size], data_file_name, f"{shard_type}_{shard_pos}.pt")
