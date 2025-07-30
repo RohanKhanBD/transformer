@@ -45,7 +45,7 @@ betas = (0.9, 0.97)
 backend = "inductor"
 
 # save file names
-save_fie_name = "nanogpt"
+save_file_name = "nanogpt"
 data_file_name = "encoded_data"
 
 # dataset path in huggingface datasets

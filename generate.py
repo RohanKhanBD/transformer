@@ -3,16 +3,16 @@ from tokenizer import Tokenizer
 from model import TransformerLM
 from argparse import ArgumentParser
 from utils import load, ModelConfig
-
+from configuration import save_file_name
 
 def main():
     tokenizer = Tokenizer()
     tokenizer.load()
 
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    checkpoint = load("nanogpt", map_location=dev)
+    checkpoint = load(save_file_name, map_location=dev)
     model_config: ModelConfig = load(
-        "nanogpt", "model_config.pt", False, map_location=dev.type
+        save_file_name, "model_config.pt", False, map_location=dev.type
     )
     model_config.flash = False
     model = TransformerLM(model_config, tokenizer.vocab_size).to(dev)

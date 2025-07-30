@@ -25,7 +25,7 @@ from configuration import (
     seed,
     compile_model,
     backend,
-    save_fie_name,
+    save_file_name,
     data_file_name,
 )
 
@@ -84,8 +84,8 @@ def main(fabric: Fabric):
     train_data, val_data = fabric.setup_dataloaders(train_data, val_data)
 
     try:
-        checkpoint = load(save_fie_name)
-        data_state = load(save_fie_name, "data_state_and_training_info.pt", False)
+        checkpoint = load(save_file_name)
+        data_state = load(save_file_name, "data_state_and_training_info.pt", False)
         fabric.print(data_state)
         train_i = data_state["step"]
         val_i = data_state["val_i"]
@@ -131,9 +131,9 @@ def main(fabric: Fabric):
                 "step": i + 1,
                 "val_i": val_i,
             }
-            save(checkpoint, save_fie_name)
-            save(model_conf, save_fie_name, "model_config.pt")
-            save(data_state, save_fie_name, "data_state_and_training_info.pt")
+            save(checkpoint, save_file_name)
+            save(model_conf, save_file_name, "model_config.pt")
+            save(data_state, save_file_name, "data_state_and_training_info.pt")
             fabric.print("saved checkpoint")
 
         for grad_i in range(grad_ecum):
