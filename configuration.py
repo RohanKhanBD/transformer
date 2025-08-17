@@ -2,7 +2,7 @@
 # Ints
 # ---------------------------------------
 # training params
-steps: int = 20087
+steps: int = 18701
 
 # eval params
 eval_rate: int = 50
