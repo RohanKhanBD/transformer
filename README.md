@@ -1,22 +1,83 @@
-## This code creates a simple Transformer Large Language Model using Pytorch and Lighting ai.
-### Some things this code does:
-* Can train a BPE-tokenizer from scratch.
-* Can tokenize a dataset using a pre-trained BPE-tokenizer.
-* Train a transformer model from scratch.
-* Generate text from a pre-trained model.
-* Use Mixture-of-Experts.
-* Use Multi-Head Latent Attention from DeepSeek.
-* Use Multi-GPU training using fabric.
-* Use Mixed-Precision training.
-### Some things this code can't do:
-* Load model's from Huggingface or anyother AI hub.
-* Fine-tune or train a model using RLHF.
-* Load any other tokenization algorithm except BPE.
-* Can't use safetensors.
-* And there are many more things it can't do, but I will stop now.
-### Here is how to use this code after cloning the repo:
-1. Install the packages needed by running `pip install -r requirements.txt`.
-2. Train tokenizer by running `python train_tokenizer.py`.
-3. Tokenize the dataset by running `python tokenize_data.py`.
-4. Now train a transformer model by running `python train.py`.
-5. Want to checkout how the model is? Run `python generate.py "input_text" "num_tokens_to_generate" "temperature" "top_p"`. For example: `python generate.py "Hello" 20 0.7 0.9`
+# 🚀 Transformer Large Language Model
+
+A simple yet powerful Transformer LLM implementation built with PyTorch and Lightning AI.
+
+---
+
+## ✨ Features
+
+### What This Code Does
+- 🔤 **Train BPE tokenizer from scratch** - Build your own vocabulary
+- 📊 **Dataset tokenization** - Process data with pre-trained BPE tokenizer  
+- 🧠 **Transformer training** - Train models from the ground up
+- 💬 **Text generation** - Generate text from pre-trained models
+- 🔀 **Mixture-of-Experts** - Efficient scaling with MoE architecture
+- 🎯 **Multi-Head Latent Attention** - Advanced attention mechanism from DeepSeek
+- 🖥️ **Multi-GPU training** - Distributed training with Lightning Fabric
+- ⚡ **Mixed-precision training** - Faster training with reduced memory usage
+
+### Current Limitations
+- ❌ No HuggingFace model loading support
+- ❌ No RLHF fine-tuning capabilities  
+- ❌ BPE tokenization only (no other algorithms)
+- ❌ No safetensors support
+- ❌ Many other features not yet implemented
+
+---
+
+## 🛠️ Quick Start
+
+### Prerequisites
+First, install the required dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### Training Pipeline
+
+#### 1️⃣ Train the Tokenizer
+```bash
+python train_tokenizer.py
+```
+
+#### 2️⃣ Tokenize Your Dataset  
+```bash
+python tokenize_data.py
+```
+
+#### 3️⃣ Train the Model
+```bash
+python train.py
+```
+
+#### 4️⃣ Generate Text
+```bash
+python generate.py "<input_text>" <num_tokens> <temperature> <top_p>
+```
+
+**Example:**
+```bash
+python generate.py "Hello" 20 0.7 0.9
+```
+
+---
+
+## 📝 Generation Parameters
+
+| Parameter     | Description                  | Example         |
+| ------------- | ---------------------------- | --------------- |
+| `input_text`  | Starting text for generation | `"Hello world"` |
+| `num_tokens`  | Number of tokens to generate | `50`            |
+| `temperature` | Randomness control (0.0-2.0) | `0.7`           |
+| `top_p`       | Nucleus sampling threshold   | `0.9`           |
+
+---
+
+## 🏗️ Architecture Highlights
+
+- **🔥 DeepSeek Multi-Head Latent Attention** - Enhanced attention mechanism
+- **⚖️ Mixture-of-Experts** - Scalable expert routing
+- **⚡ Lightning Fabric** - Efficient multi-GPU orchestration
+- **🎯 Mixed Precision** - FP16/BF16 training optimization
+
+---
