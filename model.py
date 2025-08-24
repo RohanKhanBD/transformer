@@ -302,9 +302,9 @@ class MoE(nn.Module):
         scores = self.gate.forward(x)
         if self.training:
             scores = scores + torch.randn_like(scores)
-        scores = F.softmax(scores, dim=-1)
-        indices = torch.topk(scores, k=self.conf.active_experts, dim=-1)[1]
-        weights = scores.gather(1, indices)
+        scores_ = F.softmax(scores, dim=-1)
+        indices = torch.topk(scores_, k=self.conf.active_experts, dim=-1)[1]
+        weights = scores_.gather(1, indices)
 
         for i in range(0, self.conf.n_experts):
             idx, top = torch.where(indices == i)
@@ -313,7 +313,20 @@ class MoE(nn.Module):
 
         z = self.shared_expert.forward(x)
 
-        return (y + z).view(B, T, C)
+        return (y + z).view(B, T, C), scores
+
+
+# Load Balance Loss
+# ---------------------------------------
+def load_balance_loss(moe_logits: tuple[torch.Tensor], conf: ModelConfig):
+    concat_logits = torch.cat([logit for logit in moe_logits])
+    weights = F.softmax(concat_logits, dim=-1)
+    expert = torch.topk(weights, k=conf.active_experts, dim=-1)[1]
+    mask = F.one_hot(expert, conf.n_experts)
+    token_per_expert = torch.mean(mask, dim=0)
+    prob_per_expert = torch.mean(expert, dim=0)
+    overall_loss = torch.sum(token_per_expert * prob_per_expert.unsqueeze(0))
+    return overall_loss * conf.n_experts
 
 
 # Transformer Block
@@ -321,6 +334,7 @@ class MoE(nn.Module):
 class Block(nn.Module):
     def __init__(self, conf: ModelConfig, atten_type):
         super().__init__()
+        self.conf = conf
         self.norm1 = RMS_Norm(conf.embedding_dim, conf.eps)
         if conf.mla:
             self.atten = MultiHeadLatentAttention(conf, atten_type)
@@ -343,6 +357,9 @@ class Block(nn.Module):
         x = x + self.atten.forward(
             self.norm1.forward(x), freq_cis, start_pos, mask, window
         )
+        if self.conf.use_moe:
+            x, scores = x + self.ffn.forward(self.norm2.forward(x))
+            return x, scores
         x = x + self.ffn.forward(self.norm2.forward(x))
         return x
 
@@ -463,8 +480,17 @@ class TransformerLM(nn.Module):
         mask = self.mask[:T, :T].to(x.device)
         window = self.window[:T, :T].to(x.device)
 
+        if self.conf.use_moe:
+            router_scores = None
+
         for b in self.blocks:
-            block = b.forward(block, freq_cis, 0, mask, mask + window)
+            if self.conf.use_moe:
+                block, scores = b.forward(block, freq_cis, 0, mask, mask + window)
+                router_scores = (
+                    (scores,) if router_scores is None else (scores,) + router_scores
+                )
+            else:
+                block = b.forward(block, freq_cis, 0, mask, mask + window)
 
         out_norm = self.out_norm.forward(block)
         logits = self.logits.forward(out_norm)
@@ -472,6 +498,9 @@ class TransformerLM(nn.Module):
         r_logits = logits.view(-1, logits.shape[-1])
         y = y.view(-1)
         loss = F.cross_entropy(r_logits, y)
+        if self.conf.use_moe:
+            aux_loss = load_balance_loss(router_scores, self.conf)
+            loss += aux_loss
         return logits, loss
 
     def forward_infrence(self, x: torch.Tensor, start_pos: int = 0):
@@ -493,7 +522,10 @@ class TransformerLM(nn.Module):
             )
 
         for b in self.blocks:
-            block = b.forward(block, freq_cis, start_pos, mask, mask + window)
+            if self.conf.use_moe:
+                block, _ = b.forward(block, freq_cis, start_pos, mask, mask + window)
+            else:
+                block = b.forward(block, freq_cis, start_pos, mask, mask + window)
 
         out_norm = self.out_norm.forward(block)
         logits = self.logits.forward(out_norm)
