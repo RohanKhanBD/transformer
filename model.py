@@ -358,7 +358,8 @@ class Block(nn.Module):
             self.norm1.forward(x), freq_cis, start_pos, mask, window
         )
         if self.conf.use_moe:
-            x, scores = x + self.ffn.forward(self.norm2.forward(x))
+            rx, scores = self.ffn.forward(self.norm2.forward(x))
+            x = x + rx
             return x, scores
         x = x + self.ffn.forward(self.norm2.forward(x))
         return x
