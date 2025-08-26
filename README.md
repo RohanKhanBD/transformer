@@ -39,6 +39,7 @@ pip install -r requirements.txt
 ```bash
 python train_tokenizer.py
 ```
+*Or use our pre-trained tokenizer: [BPE Tokenizer on Kaggle](https://www.kaggle.com/models/rohankhanbd/bpetokenizer)*
 
 #### 2️⃣ Tokenize Your Dataset  
 ```bash
