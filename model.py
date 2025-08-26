@@ -263,6 +263,7 @@ class FFN(nn.Module):
 
 
 # Expert Network
+# ---------------------------------------
 class Expert(nn.Module):
     def __init__(self, conf: ModelConfig):
         super().__init__()
@@ -318,7 +319,6 @@ class MoE(nn.Module):
 
 # Load Balance Loss
 # ---------------------------------------
-# I have no idea if this loss is correct.
 def load_balance_loss(moe_logits: tuple[torch.Tensor], conf: ModelConfig):
     concat_logits = torch.cat([logit for logit in moe_logits])
     weights = F.softmax(concat_logits, dim=-1)
