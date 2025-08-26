@@ -323,10 +323,9 @@ def load_balance_loss(moe_logits: tuple[torch.Tensor], conf: ModelConfig):
     concat_logits = torch.cat([logit for logit in moe_logits])
     weights = F.softmax(concat_logits, dim=-1)
     expert = torch.topk(weights, k=conf.active_experts, dim=-1)[1]
-    expert = expert.view(-1)
     mask = F.one_hot(expert, conf.n_experts)
     token_per_expert = torch.mean(mask.float(), dim=0)
-    prob_per_expert = torch.mean(expert.float(), dim=0)
+    prob_per_expert = torch.mean(weights, dim=0)
     overall_loss = torch.sum(token_per_expert * prob_per_expert.unsqueeze(0))
     return overall_loss * conf.n_experts
 
