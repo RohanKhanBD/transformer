@@ -113,29 +113,14 @@ def main(fabric: Fabric):
         fabric.log("model/lr", n_lr, step=i)
         for param_group in optim.param_groups:
             param_group["lr"] = n_lr
-
+        # ------- Eval -------
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(model, val_data, val_data_iter, eval_steps)
             fabric.all_reduce(e_loss, reduce_op="mean")
             fabric.log("loss/val", e_loss.item(), step=val_i)
             val_i += 1
             fabric.print(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
-
-        if (i % save_rate == 0 or i == steps) and fabric.is_global_zero:
-            fabric.print("saving checkpoint...")
-            checkpoint = {"model": model.state_dict(), "optim": optim.state_dict()}
-
-            data_state = {
-                "train_data": train_data,
-                "val_data": val_data,
-                "step": i + 1,
-                "val_i": val_i,
-            }
-            save(checkpoint, save_file_name)
-            save(model_conf, save_file_name, "model_config.pt")
-            save(data_state, save_file_name, "data_state_and_training_info.pt")
-            fabric.print("saved checkpoint")
-
+        # ------- Train -------
         for grad_i in range(grad_ecum):
             no_sync_enable = grad_i < grad_ecum - 1
             with fabric.no_backward_sync(
@@ -171,6 +156,21 @@ def main(fabric: Fabric):
         fabric.print(
             f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f}"
         )
+        # ------- Save -------
+        if (i % save_rate == 0 or i == steps) and fabric.is_global_zero:
+            fabric.print("saving checkpoint...")
+            checkpoint = {"model": model.state_dict(), "optim": optim.state_dict()}
+
+            data_state = {
+                "train_data": train_data,
+                "val_data": val_data,
+                "step": i + 1,
+                "val_i": val_i,
+            }
+            save(checkpoint, save_file_name)
+            save(model_conf, save_file_name, "model_config.pt")
+            save(data_state, save_file_name, "data_state_and_training_info.pt")
+            fabric.print("saved checkpoint")
 
 
 if __name__ == "__main__":
