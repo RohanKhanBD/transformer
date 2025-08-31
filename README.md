@@ -45,6 +45,7 @@ python train_tokenizer.py
 ```bash
 python tokenize_data.py
 ```
+*Or use our pre-tokenized dataset: [FineWeb-Edu 10B Subset](https://www.kaggle.com/datasets/rohankhanbd/half-tokenized-fineweb-edu-10b-subset)*
 
 #### 3️⃣ Train the Model
 ```bash
