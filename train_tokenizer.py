@@ -1,18 +1,14 @@
 import datasets
 from tokenizer import Tokenizer
-from configuration import (
-    dataset_path_huggingface,
-    dataset_sub_set,
-    tokenizer_train_shard_size,
-    trust_remote_code,
-)
+from config import DataConfig
 
 if __name__ == "__main__":
+    cfg = DataConfig()
     data_sets = datasets.load_dataset(
-        dataset_path_huggingface,
-        dataset_sub_set,
+        cfg.dataset_path_huggingface,
+        cfg.dataset_sub_set,
         split="train",
-        trust_remote_code=trust_remote_code,
+        trust_remote_code=cfg.trust_remote_code,
         streaming=True,
     )
     print(data_sets)
@@ -25,7 +21,7 @@ if __name__ == "__main__":
         text_point = ""
         for text in data_sets:
             text_point += text["text"] + "\n"
-            if len(text_point) > tokenizer_train_shard_size:
+            if len(text_point) > cfg.tokenizer_train_shard_size:
                 break
         trained = tok.train(text_point)
         print(trained)
