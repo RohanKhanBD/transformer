@@ -10,28 +10,13 @@ from tokenizer import Tokenizer
 from model import TransformerLM
 from utils import TextDataset, AttentionMask, load, save, est_loss, get_lr, set_seed
 
-from configuration import (
-    steps,
-    eval_rate,
-    eval_steps,
-    save_rate,
-    lr,
-    min_lr,
-    weight_decay,
-    betas,
-    warm_up,
-    total_batch_size,
-    batch_size,
-    seed,
-    compile_model,
-    backend,
-    save_file_name,
-    data_file_name,
-)
+from config import TrainConfig, DataConfig
 
 
 def main(fabric: Fabric):
-    set_seed(seed + fabric.global_rank)
+    cfg = TrainConfig()
+    data_cfg = DataConfig()
+    set_seed(cfg.seed + fabric.global_rank)
     n_device = fabric.world_size
     tok = Tokenizer()
     tok.load()
@@ -56,36 +41,36 @@ def main(fabric: Fabric):
             AttentionMask.Global,
         ],
     )
-    assert total_batch_size % (batch_size * model_conf.maxlen * n_device) == 0, (
+    assert cfg.total_batch_size % (cfg.batch_size * model_conf.maxlen * n_device) == 0, (
         "total_batch_size has divisible by batch_size * maxlen * n_device"
     )
-    grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
+    grad_ecum = cfg.total_batch_size // (cfg.batch_size * model_conf.maxlen * n_device)
     model = TransformerLM(model_conf, tok.vocab_size)
     model: TransformerLM = torch.compile(
-        model, backend=backend, disable=not compile_model
+        model, backend=cfg.backend, disable=not cfg.compile_model
     )
     fabric.print(model)
     fabric.print(model.total_num_of_params())
     fabric.print(f"Number of devices:{n_device}")
-    optim = model.get_optimizer(lr, weight_decay, betas, fused=is_cuda)
+    optim = model.get_optimizer(cfg.lr, cfg.weight_decay, cfg.betas, fused=is_cuda)
     model, optim = fabric.setup(model, optim)
 
     train_data = DataLoader(
-        TextDataset(data_file_name, model_conf.maxlen, "train"),
-        batch_size=batch_size,
+        TextDataset(data_cfg.data_file_name, model_conf.maxlen, "train"),
+        batch_size=cfg.batch_size,
         shuffle=False,
     )
     val_data = DataLoader(
-        TextDataset(data_file_name, model_conf.maxlen, "val"),
-        batch_size=batch_size,
+        TextDataset(data_cfg.data_file_name, model_conf.maxlen, "val"),
+        batch_size=cfg.batch_size,
         shuffle=False,
     )
 
     train_data, val_data = fabric.setup_dataloaders(train_data, val_data)
 
     try:
-        checkpoint = load(save_file_name)
-        data_state = load(save_file_name, "data_state_and_training_info.pt", False)
+        checkpoint = load(cfg.save_file_name)
+        data_state = load(cfg.save_file_name, "data_state_and_training_info.pt", False)
         fabric.print(data_state)
         train_i = data_state["step"]
         val_i = data_state["val_i"]
@@ -107,19 +92,19 @@ def main(fabric: Fabric):
     x, y = next(train_data_iter)
     t0 = time()
 
-    for i in range(train_i, steps + 1):
+    for i in range(train_i, cfg.steps + 1):
         ploss = 0.0
-        n_lr = get_lr(i, steps, lr, min_lr, warm_up)
+        n_lr = get_lr(i, cfg.steps, cfg.lr, cfg.min_lr, cfg.warm_up)
         fabric.log("model/lr", n_lr, step=i)
         for param_group in optim.param_groups:
             param_group["lr"] = n_lr
         # ------- Eval -------
-        if i % eval_rate == 0 or i == steps:
-            e_loss = est_loss(model, val_data, val_data_iter, eval_steps)
+        if i % cfg.eval_rate == 0 or i == cfg.steps:
+            e_loss = est_loss(model, val_data, val_data_iter, cfg.eval_steps)
             fabric.all_reduce(e_loss, reduce_op="mean")
             fabric.log("loss/val", e_loss.item(), step=val_i)
             val_i += 1
-            fabric.print(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
+            fabric.print(f"step: {i}/{cfg.steps}, val_loss: {e_loss.item():.8f}")
         # ------- Train -------
         for grad_i in range(grad_ecum):
             no_sync_enable = grad_i < grad_ecum - 1
@@ -152,12 +137,12 @@ def main(fabric: Fabric):
         t1 = time()
         dt = t1 - t0
         t0 = t1
-        tok_per_sec = (batch_size * model_conf.maxlen * grad_ecum * n_device) / dt
+        tok_per_sec = (cfg.batch_size * model_conf.maxlen * grad_ecum * n_device) / dt
         fabric.print(
-            f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f}"
+            f"step: {i}/{cfg.steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f}"
         )
         # ------- Save -------
-        if (i % save_rate == 0 or i == steps) and fabric.is_global_zero:
+        if (i % cfg.save_rate == 0 or i == cfg.steps) and fabric.is_global_zero:
             fabric.print("saving checkpoint...")
             checkpoint = {"model": model.state_dict(), "optim": optim.state_dict()}
 
@@ -167,9 +152,9 @@ def main(fabric: Fabric):
                 "step": i + 1,
                 "val_i": val_i,
             }
-            save(checkpoint, save_file_name)
-            save(model_conf, save_file_name, "model_config.pt")
-            save(data_state, save_file_name, "data_state_and_training_info.pt")
+            save(checkpoint, cfg.save_file_name)
+            save(model_conf, cfg.save_file_name, "model_config.pt")
+            save(data_state, cfg.save_file_name, "data_state_and_training_info.pt")
             fabric.print("saved checkpoint")
 
 
