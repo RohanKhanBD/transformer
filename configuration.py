@@ -16,7 +16,7 @@ warm_up: int = 715
 
 # batch sizes
 total_batch_size = 2**19
-batch_size: int = 4
+batch_size: int = 16
 
 # seed
 seed = 1337
