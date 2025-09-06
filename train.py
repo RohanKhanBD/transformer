@@ -43,18 +43,15 @@ def main(fabric: Fabric):
         embedding_dim=768,
         num_heads=12,
         n_layers=12,
-        inter_dim=768 * 4,
+        inter_dim=768 * 2,
         window_size=512,
-        kv_heads=4,
+        mla=True,
+        kv_lora_rank=1024,
+        qk_rope_dim=64,
+        qk_nope_dim=256,
+        v_dim=256,
         flash=is_cuda,
-        atten_types=[
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Local,
-            AttentionMask.Global,
-        ],
+        atten_types=[AttentionMask.Local],
     )
     assert total_batch_size % (batch_size * model_conf.maxlen * n_device) == 0, (
         "total_batch_size has divisible by batch_size * maxlen * n_device"
