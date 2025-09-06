@@ -39,12 +39,12 @@ def main(fabric: Fabric):
     is_cuda = True if dev == "cuda" else False
 
     model_conf = TransformerLM.get_transformer_config(
-        maxlen=1024,
+        maxlen=256,
         embedding_dim=768,
         num_heads=12,
         n_layers=12,
         inter_dim=768 * 2,
-        window_size=512,
+        window_size=128,
         mla=True,
         kv_lora_rank=1024,
         qk_rope_dim=64,
