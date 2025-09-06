@@ -59,14 +59,16 @@ class KVCache(nn.Module):
         self,
         batch_size: int,
         maxlen: int,
-        head_dim: int,
         num_heads: int,
+        k_dim: int,
+        v_dim: int,
         device: torch.device,
     ):
         super().__init__()
-        cache_shape = (batch_size, maxlen, num_heads, head_dim)
-        self.register_buffer("k_cache", torch.zeros(cache_shape).to(device), False)
-        self.register_buffer("v_cache", torch.zeros(cache_shape).to(device), False)
+        k_cache_shape = (batch_size, maxlen, num_heads, k_dim)
+        v_cache_shape = (batch_size, maxlen, num_heads, v_dim)
+        self.register_buffer("k_cache", torch.zeros(k_cache_shape).to(device), False)
+        self.register_buffer("v_cache", torch.zeros(v_cache_shape).to(device), False)
 
     def update(self, k: torch.Tensor, v: torch.Tensor, start_pos: int):
         T = k.size(1)
@@ -163,29 +165,27 @@ class MultiHeadLatentAttention(nn.Module):
         super().__init__()
         self.type_ = type_
         self.conf = conf
-        self.head_dim = conf.embedding_dim // conf.num_heads
-        assert self.head_dim * conf.num_heads == conf.embedding_dim, (
-            "embedding_dim must be divisible by num_heads"
-        )
+        self.qk_head_dim = conf.qk_nope_dim + conf.qk_rope_dim
 
         self.query = nn.Linear(
-            conf.embedding_dim, conf.num_heads * self.head_dim, bias=conf.atten_bias
+            conf.embedding_dim, conf.num_heads * self.qk_head_dim, bias=conf.atten_bias
         )
 
         # kv init
         self.compress_kv = nn.Linear(
-            conf.embedding_dim, conf.kv_lora_rank, bias=conf.atten_bias
+            conf.embedding_dim,
+            conf.kv_lora_rank + conf.qk_rope_dim,
+            bias=conf.atten_bias,
         )
         self.kv_norm = RMS_Norm(conf.kv_lora_rank, conf.eps)
-        self.decompress_k = nn.Linear(
-            conf.kv_lora_rank, conf.num_heads * self.head_dim, bias=conf.atten_bias
-        )
-        self.decompress_v = nn.Linear(
-            conf.kv_lora_rank, conf.num_heads * self.head_dim, bias=conf.atten_bias
+        self.decompress_kv = nn.Linear(
+            conf.kv_lora_rank,
+            conf.num_heads * (conf.qk_nope_dim + conf.v_dim),
+            bias=conf.atten_bias,
         )
 
         self.proj = nn.Linear(
-            conf.num_heads * self.head_dim, conf.embedding_dim, bias=conf.atten_bias
+            conf.num_heads * conf.v_dim, conf.embedding_dim, bias=conf.atten_bias
         )
 
         self.head_dp = nn.Dropout(conf.atten_dropout)
@@ -202,23 +202,33 @@ class MultiHeadLatentAttention(nn.Module):
         window: torch.Tensor,
     ):
         B, T, C = x.shape
+        # query rope part
         q = self.query.forward(x)
+        q = q.view(B, T, self.conf.num_heads, self.qk_head_dim)
+        q_nope, q_rope = torch.split(
+            q, [self.conf.qk_nope_dim, self.conf.qk_rope_dim], -1
+        )
+        q_rope = apply_rope(q_rope, freq_cis)
 
-        # kv forward
-        kv_compressed = self.compress_kv.forward(x)
-        kv_norm = self.kv_norm.forward(kv_compressed)
+        # key rope part
+        kv = self.compress_kv.forward(x)
+        kv, k_rope = torch.split(
+            kv, [self.conf.kv_lora_rank, self.conf.qk_rope_dim], -1
+        )
+        k_rope = k_rope.view(B, T, 1, self.conf.qk_rope_dim)
+        k_rope = apply_rope(k_rope, freq_cis)
 
-        k = self.decompress_k.forward(kv_norm)
-        v = self.decompress_v.forward(kv_norm)
+        # value and nope part
+        kv = self.kv_norm.forward(kv)
+        kv = self.decompress_kv.forward(kv)
+        kv = kv.view(B, T, self.conf.num_heads, self.conf.qk_nope_dim + self.conf.v_dim)
+        k_nope, v = torch.split(kv, [self.conf.qk_nope_dim, self.conf.v_dim], -1)
 
-        # same as mha without repeat_interleave
-        q = q.view(B, T, self.conf.num_heads, self.head_dim)
-        k = k.view(B, T, self.conf.num_heads, self.head_dim)
-        v = v.view(B, T, self.conf.num_heads, self.head_dim)
+        # cat q and k
+        q = torch.cat([q_nope, q_rope], -1)
+        k = torch.cat([k_nope, k_rope.expand(-1, -1, self.conf.num_heads, -1)], -1)
 
-        q = apply_rope(q, freq_cis)
-        k = apply_rope(k, freq_cis)
-
+        # classic attention math
         if self.cache is not None:
             k, v = self.cache.update(k, v, start_pos)
 
@@ -233,7 +243,7 @@ class MultiHeadLatentAttention(nn.Module):
                 dropout_p=self.conf.atten_dropout,
             )
         else:
-            atten = q @ k.transpose(-2, -1) * (1 / sqrt(self.head_dim))
+            atten = q @ k.transpose(-2, -1) * (1 / sqrt(self.qk_head_dim))
             if self.type_ == AttentionMask.Global:
                 atten = atten + mask
             else:
@@ -241,7 +251,7 @@ class MultiHeadLatentAttention(nn.Module):
             atten = self.head_dp.forward(F.softmax(atten, -1))
             output = atten @ v
 
-        output = output.transpose(1, 2).contiguous().view(B, T, C)
+        output = output.transpose(1, 2).contiguous().view(B, T, -1)
         output = self.proj.forward(output)
         return self.atten_dp.forward(output)
 
@@ -384,6 +394,9 @@ class TransformerLM(nn.Module):
         kv_heads: int | None = None,
         mla: bool = False,
         kv_lora_rank: int | None = None,
+        qk_rope_dim: int | None = None,
+        qk_nope_dim: int | None = None,
+        v_dim: int | None = None,
         base: int = 10000,
         eps: float = 1e-6,
         atten_dropout: float = 0.0,
@@ -408,6 +421,9 @@ class TransformerLM(nn.Module):
             kv_heads=kv_heads,
             mla=mla,
             kv_lora_rank=kv_lora_rank,
+            qk_rope_dim=qk_rope_dim,
+            qk_nope_dim=qk_nope_dim,
+            v_dim=v_dim,
             base=base,
             eps=eps,
             atten_dropout=atten_dropout,
@@ -555,13 +571,23 @@ class TransformerLM(nn.Module):
                 cache_device = block.atten.query.weight.device
                 head_dim = block.atten.head_dim
                 block.atten.cache = KVCache(
-                    B, self.conf.maxlen, head_dim, self.conf.kv_heads, cache_device
+                    B,
+                    self.conf.maxlen,
+                    self.conf.kv_heads,
+                    head_dim,
+                    head_dim,
+                    cache_device,
                 )
             else:
                 cache_device = block.atten.query.weight.device
-                head_dim = block.atten.head_dim
+                k_dim = block.atten.qk_head_dim
                 block.atten.cache = KVCache(
-                    B, self.conf.maxlen, head_dim, self.conf.num_heads, cache_device
+                    B,
+                    self.conf.maxlen,
+                    self.conf.num_heads,
+                    k_dim,
+                    self.conf.v_dim,
+                    cache_device,
                 )
 
         for k, v in enumerate(inp):

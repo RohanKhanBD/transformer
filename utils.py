@@ -146,6 +146,9 @@ class ModelConfig:
     # mla
     mla: bool
     kv_lora_rank: int | None
+    qk_rope_dim: int | None
+    qk_nope_dim: int | None
+    v_dim: int | None
     # rope
     base: int
     eps: float
