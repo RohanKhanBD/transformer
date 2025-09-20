@@ -1,10 +1,12 @@
+import os
+
 import torch
-from torch.utils.data import DataLoader
+import torch.distributed as dist
+from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import DataLoader, DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from time import time
-
-from lightning import Fabric
-from lightning.fabric.loggers.tensorboard import TensorBoardLogger
 
 from tokenizer import Tokenizer
 from model import TransformerLM
@@ -30,14 +32,39 @@ from configuration import (
 )
 
 
-def main(fabric: Fabric):
-    set_seed(seed + fabric.global_rank)
-    n_device = fabric.world_size
+def print_master(inp, master):
+    if master:
+        print(inp)
+
+
+def main():
+    writer = SummaryWriter()
     tok = Tokenizer()
     tok.load()
-    dev = fabric.device.type
-    is_cuda = True if dev == "cuda" else False
+    is_cuda = torch.cuda.is_available()
 
+    # Distributed Data Parallel init
+    ddp = int(os.environ.get("RANK", -1)) != -1
+    if ddp:
+        assert is_cuda, "Need gpu for ddp training."
+        dist.init_process_group("nccl")
+        rank = int(os.environ["RANK"])
+        local_rank = int(os.environ["LOCAL_RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        device = f"cuda:{local_rank}"
+        device_type = "cuda"
+        master_process = rank == 0
+        torch.cuda.set_device(device)
+    else:
+        rank = 0
+        local_rank = 0
+        world_size = 1
+        device = "cuda" if is_cuda else "cpu"
+        device_type = "cuda" if is_cuda else "cpu"
+        master_process = True
+
+    # model init
+    set_seed(seed + rank)
     model_conf = TransformerLM.get_transformer_config(
         maxlen=256,
         embedding_dim=768,
@@ -53,37 +80,46 @@ def main(fabric: Fabric):
         flash=is_cuda,
         atten_types=[AttentionMask.Local],
     )
-    assert total_batch_size % (batch_size * model_conf.maxlen * n_device) == 0, (
-        "total_batch_size has divisible by batch_size * maxlen * n_device"
+    assert total_batch_size % (batch_size * model_conf.maxlen * world_size) == 0, (
+        "total_batch_size has divisible by batch_size * maxlen * world_size"
     )
-    grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * n_device)
+    grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * world_size)
     model = TransformerLM(model_conf, tok.vocab_size)
     model: TransformerLM = torch.compile(
         model, backend=backend, disable=not compile_model
     )
-    fabric.print(model)
-    fabric.print(model.total_num_of_params())
-    fabric.print(f"Number of devices:{n_device}")
-    optim = model.get_optimizer(lr, weight_decay, betas, fused=is_cuda)
-    model, optim = fabric.setup(model, optim)
+    if ddp:
+        model = DDP(model, device_ids=[local_rank])
+        raw_model = model.module
+    else:
+        raw_model = model
 
+    print_master(model, master_process)
+    print_master(raw_model.total_num_of_params(), master_process)
+    print_master(f"Number of devices:{world_size}", master_process)
+    # optimizer
+    optim = raw_model.get_optimizer(lr, weight_decay, betas, fused=is_cuda)
+
+    # dataset
+    train_dataset = TextDataset(data_file_name, model_conf.maxlen, "train")
+    val_dataset = TextDataset(data_file_name, model_conf.maxlen, "val")
+
+    # sampler
+    train_sampler = DistributedSampler(train_dataset, shuffle=False)
+    val_sampler = DistributedSampler(val_dataset, shuffle=False)
+
+    # data loader
     train_data = DataLoader(
-        TextDataset(data_file_name, model_conf.maxlen, "train"),
-        batch_size=batch_size,
-        shuffle=False,
+        train_dataset, batch_size=batch_size, shuffle=False, sampler=train_sampler
     )
     val_data = DataLoader(
-        TextDataset(data_file_name, model_conf.maxlen, "val"),
-        batch_size=batch_size,
-        shuffle=False,
+        val_dataset, batch_size=batch_size, shuffle=False, sampler=val_sampler
     )
-
-    train_data, val_data = fabric.setup_dataloaders(train_data, val_data)
 
     try:
         checkpoint = load(save_file_name)
         data_state = load(save_file_name, "data_state_and_training_info.pt", False)
-        fabric.print(data_state)
+        print_master(data_state, master_process)
         train_i = data_state["step"]
         val_i = data_state["val_i"]
 
@@ -93,11 +129,11 @@ def main(fabric: Fabric):
         model.load_state_dict(checkpoint["model"])
         optim.load_state_dict(checkpoint["optim"])
 
-        fabric.print("loaded: True")
+        print_master("loaded: True", master_process)
     except FileNotFoundError:
         train_i = 1
         val_i = 1
-        fabric.print("loaded: False")
+        print_master("loaded: False", master_process)
 
     train_data_iter = iter(train_data)
     val_data_iter = iter(val_data)
@@ -107,37 +143,44 @@ def main(fabric: Fabric):
     for i in range(train_i, steps + 1):
         ploss = 0.0
         n_lr = get_lr(i, steps, lr, min_lr, warm_up)
-        fabric.log("model/lr", n_lr, step=i)
+        writer.add_scalar("model/lr", n_lr, i)
         for param_group in optim.param_groups:
             param_group["lr"] = n_lr
         # ------- Eval -------
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(model, val_data, val_data_iter, eval_steps)
-            fabric.all_reduce(e_loss, reduce_op="mean")
-            fabric.log("loss/val", e_loss.item(), step=val_i)
+            if ddp:
+                dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
+            writer.add_scalar("loss/val", e_loss, val_i)
             val_i += 1
-            fabric.print(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
+            print_master(
+                f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}", master_process
+            )
         # ------- Train -------
         for grad_i in range(grad_ecum):
             no_sync_enable = grad_i < grad_ecum - 1
-            with fabric.no_backward_sync(
-                model, enabled=no_sync_enable if is_cuda else False
+            with torch.autocast(
+                device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
             ):
                 _, loss = model.forward(x, y)
-                loss = loss / grad_ecum
-                fabric.backward(loss)
+            loss = loss / grad_ecum
+            if no_sync_enable and ddp:
+                with model.no_sync():
+                    loss.backward()
+            else:
+                loss.backward()
             try:
                 x, y = next(train_data_iter)
             except StopIteration:
                 train_data_iter = iter(train_data)
                 x, y = next(train_data_iter)
             ploss += loss.detach()
+        if ddp:
+            dist.all_reduce(ploss, op=dist.ReduceOp.AVG)
+        writer.add_scalar("loss/train", ploss, i)
 
-        fabric.all_reduce(ploss, reduce_op="mean")
-        fabric.log("loss/train", ploss, step=i)
-
-        norm: torch.Tensor = fabric.clip_gradients(model, optim, max_norm=1.0)
-        fabric.log("model/norm", norm.item(), step=i)
+        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        writer.add_scalar("model/norm", norm.item(), i)
         optim.step()
         optim.zero_grad()
 
@@ -149,13 +192,14 @@ def main(fabric: Fabric):
         t1 = time()
         dt = t1 - t0
         t0 = t1
-        tok_per_sec = (batch_size * model_conf.maxlen * grad_ecum * n_device) / dt
-        fabric.print(
-            f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f}"
+        tok_per_sec = (batch_size * model_conf.maxlen * grad_ecum * world_size) / dt
+        print_master(
+            f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f}",
+            master_process,
         )
         # ------- Save -------
-        if (i % save_rate == 0 or i == steps) and fabric.is_global_zero:
-            fabric.print("saving checkpoint...")
+        if (i % save_rate == 0 or i == steps) and master_process:
+            print_master("saving checkpoint...", master_process)
             checkpoint = {"model": model.state_dict(), "optim": optim.state_dict()}
 
             data_state = {
@@ -167,12 +211,11 @@ def main(fabric: Fabric):
             save(checkpoint, save_file_name)
             save(model_conf, save_file_name, "model_config.pt")
             save(data_state, save_file_name, "data_state_and_training_info.pt")
-            fabric.print("saved checkpoint")
+            print_master("saved checkpoint", master_process)
+    if ddp:
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-    logger = TensorBoardLogger("runs")
-    fabric = Fabric(precision="bf16-mixed", loggers=[logger])
-    fabric.launch()
-    main(fabric)
+    main()
