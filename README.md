@@ -1,6 +1,6 @@
 # 🚀 Transformer Large Language Model
 
-A simple yet powerful Transformer LLM implementation built with PyTorch and Lightning AI.
+A simple yet powerful Transformer LLM implementation built with PyTorch.
 
 ---
 
@@ -13,7 +13,7 @@ A simple yet powerful Transformer LLM implementation built with PyTorch and Ligh
 - 💬 **Text generation** - Generate text from pre-trained models
 - 🔀 **Mixture-of-Experts** - Efficient scaling with MoE architecture
 - 🎯 **Multi-Head Latent Attention** - Advanced attention mechanism from DeepSeek
-- 🖥️ **Multi-GPU training** - Distributed training with Lightning Fabric
+- 🖥️ **Multi-GPU training** - Distributed training with PyTorch DDP
 - ⚡ **Mixed-precision training** - Faster training with reduced memory usage
 
 ### Current Limitations
@@ -79,7 +79,7 @@ python generate.py "Hello" 20 0.7 0.9
 
 - **🔥 DeepSeek Multi-Head Latent Attention** - Enhanced attention mechanism
 - **⚖️ Mixture-of-Experts** - Scalable expert routing
-- **⚡ Lightning Fabric** - Efficient multi-GPU orchestration
+- **⚡ PyTorch DDP** - Efficient multi-GPU orchestration
 - **🎯 Mixed Precision** - FP16/BF16 training optimization
 
 ---
