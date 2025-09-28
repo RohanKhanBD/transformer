@@ -159,15 +159,20 @@ def main():
         # ------- Train -------
         for grad_i in range(grad_ecum):
             no_sync_enable = grad_i < grad_ecum - 1
-            with torch.autocast(
-                device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
-            ):
-                _, loss = model.forward(x, y)
-            loss = loss / grad_ecum
             if no_sync_enable and ddp:
                 with model.no_sync():
+                    with torch.autocast(
+                        device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
+                    ):
+                        _, loss = model.forward(x, y)
+                    loss = loss / grad_ecum
                     loss.backward()
             else:
+                with torch.autocast(
+                    device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
+                ):
+                    _, loss = model.forward(x, y)
+                loss = loss / grad_ecum
                 loss.backward()
             try:
                 x, y = next(train_data_iter)
