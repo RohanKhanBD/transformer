@@ -105,8 +105,12 @@ def main():
     val_dataset = TextDataset(data_file_name, model_conf.maxlen, "val")
 
     # sampler
-    train_sampler = DistributedSampler(train_dataset, shuffle=False)
-    val_sampler = DistributedSampler(val_dataset, shuffle=False)
+    if ddp:
+        train_sampler = DistributedSampler(train_dataset, shuffle=False)
+        val_sampler = DistributedSampler(val_dataset, shuffle=False)
+    else:
+        train_sampler = None
+        val_sampler = None
 
     # data loader
     train_data = DataLoader(
