@@ -12,24 +12,7 @@ from tokenizer import Tokenizer
 from model import TransformerLM
 from utils import TextDataset, AttentionMask, load, save, est_loss, get_lr, set_seed
 
-from configuration import (
-    steps,
-    eval_rate,
-    eval_steps,
-    save_rate,
-    lr,
-    min_lr,
-    weight_decay,
-    betas,
-    warm_up,
-    total_batch_size,
-    batch_size,
-    seed,
-    compile_model,
-    backend,
-    save_file_name,
-    data_file_name,
-)
+from config_args import train_args
 
 
 def print_master(inp, master):
@@ -38,6 +21,24 @@ def print_master(inp, master):
 
 
 def main():
+    file_args = train_args()
+    steps = file_args.steps
+    eval_rate = file_args.eval_rate
+    eval_steps = file_args.eval_steps
+    save_rate = file_args.save_rate
+    lr = file_args.lr
+    min_lr = file_args.min_lr
+    weight_decay = file_args.weight_decay
+    betas = (file_args.beta1, file_args.beta2)
+    warm_up = file_args.warm_up
+    total_batch_size = file_args.total_batch_size
+    batch_size = file_args.batch_size
+    seed = file_args.seed
+    compile_model = file_args.compile_model
+    backend = file_args.backend
+    save_file_name = file_args.save_file_name
+    data_file_name = file_args.data_file_name
+
     writer = SummaryWriter()
     tok = Tokenizer()
     tok.load()
