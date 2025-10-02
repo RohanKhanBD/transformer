@@ -65,7 +65,7 @@ def est_loss(
         except StopIteration:
             val_iter = iter(val_dataloader)
             x, y = next(val_iter)
-            x, y = x.to(device), y.to(device)
+        x, y = x.to(device), y.to(device)
         with torch.autocast(
             device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
         ):
