@@ -159,7 +159,9 @@ def main():
             param_group["lr"] = n_lr
         # ------- Eval -------
         if i % eval_rate == 0 or i == steps:
-            e_loss = est_loss(model, val_data, val_data_iter, eval_steps, device)
+            e_loss = est_loss(
+                model, val_data, val_data_iter, eval_steps, device, device_type, is_cuda
+            )
             if ddp:
                 dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
             writer.add_scalar("loss/val", e_loss, val_i)
