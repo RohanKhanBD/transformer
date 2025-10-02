@@ -1,13 +1,14 @@
 import datasets
 from tokenizer import Tokenizer
-from configuration import (
-    dataset_path_huggingface,
-    dataset_sub_set,
-    tokenizer_train_shard_size,
-    trust_remote_code,
-)
+from config_args import tokenize_args
 
 if __name__ == "__main__":
+    file_args = tokenize_args(train_tokenizer=True)
+    dataset_path_huggingface = file_args.dataset_path_huggingface
+    dataset_sub_set = file_args.dataset_sub_set
+    tokenizer_train_shard_size = file_args.tokenizer_train_shard_size
+    trust_remote_code = file_args.trust_remote_code
+
     data_sets = datasets.load_dataset(
         dataset_path_huggingface,
         dataset_sub_set,

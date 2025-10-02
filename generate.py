@@ -1,13 +1,20 @@
 import torch
 from tokenizer import Tokenizer
 from model import TransformerLM
-from argparse import ArgumentParser
 from utils import load, ModelConfig
-from configuration import save_file_name
+from config_args import generate_args
+
 
 def main():
     tokenizer = Tokenizer()
     tokenizer.load()
+
+    file_args = generate_args()
+    input_tokens = [tokenizer.encode(file_args.input_text) for _ in range(10)]
+    num_tokens_to_generate = file_args.num_tokens_to_generate
+    temperature = file_args.temperature
+    topp = file_args.top_p
+    save_file_name = file_args.save_file_name
 
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     checkpoint = load(save_file_name, map_location=dev)
@@ -18,19 +25,6 @@ def main():
     model = TransformerLM(model_config, tokenizer.vocab_size).to(dev)
     model.load_state_dict(checkpoint["model"])
     model.eval()
-
-    parser = ArgumentParser()
-    parser.add_argument("input_text", type=str)
-    parser.add_argument("num_tokens_to_generate", type=int)
-    parser.add_argument("temperature", type=float)
-    parser.add_argument("top_p", type=float)
-
-    args = parser.parse_args()
-
-    input_tokens = [tokenizer.encode(args.input_text) for _ in range(10)]
-    num_tokens_to_generate = args.num_tokens_to_generate
-    temperature = args.temperature
-    topp = args.top_p
 
     stop_tokens = [tokenizer.special_token["<|endoftext|>"]]
     generated_tokens = model.generate(
