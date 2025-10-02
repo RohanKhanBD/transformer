@@ -45,12 +45,12 @@ python train_tokenizer.py
 
 **Tokenizer Training Options:**
 
-| Parameter                      | Description                       |
-| ------------------------------ | --------------------------------- |
-| `--dataset_path_huggingface`   | HuggingFace dataset path          |
-| `--dataset_sub_set`            | Dataset subset to use             |
-| `--tokenizer_train_shard_size` | Shard size for tokenizer training |
-| `--trust_remote_code`          | Trust remote code execution       |
+| Parameter                      |
+| ------------------------------ |
+| `--dataset_path_huggingface`   |
+| `--dataset_sub_set`            |
+| `--tokenizer_train_shard_size` |
+| `--trust_remote_code`          |
 
 #### 2️⃣ Tokenize Your Dataset  
 ```bash
@@ -60,12 +60,12 @@ python tokenize_data.py
 
 **Data Tokenization Options:**
 
-| Parameter                      | Description                    |
-| ------------------------------ | ------------------------------ |
-| `--dataset_path_huggingface`   | HuggingFace dataset path       |
-| `--dataset_sub_set`            | Dataset subset to use          |
-| `--data_file_name`             | Name of the data file          |
-| `--encoded_dataset_shard_size` | Shard size for encoded dataset |
+| Parameter                      |
+| ------------------------------ |
+| `--dataset_path_huggingface`   |
+| `--dataset_sub_set`            |
+| `--data_file_name`             |
+| `--encoded_dataset_shard_size` |
 
 #### 3️⃣ Train the Model
 ```bash
@@ -74,25 +74,25 @@ python train.py
 
 **Training Options:**
 
-| Parameter            | Description                      |
-| -------------------- | -------------------------------- |
-| `--steps`            | Number of training steps         |
-| `--eval_rate`        | Evaluation frequency             |
-| `--eval_steps`       | Number of evaluation steps       |
-| `--save_rate`        | Checkpoint save frequency        |
-| `--warm_up`          | Learning rate warmup steps       |
-| `--total_batch_size` | Total batch size across all GPUs |
-| `--batch_size`       | Per-device batch size            |
-| `--seed`             | Random seed for reproducibility  |
-| `--lr`               | Learning rate                    |
-| `--min_lr`           | Minimum learning rate            |
-| `--weight_decay`     | Weight decay coefficient         |
-| `--beta1`            | Adam beta1 parameter             |
-| `--beta2`            | Adam beta2 parameter             |
-| `--backend`          | Distributed backend (e.g., nccl) |
-| `--save_file_name`   | Checkpoint save filename         |
-| `--data_file_name`   | Training data filename           |
-| `--compile_model`    | Enable model compilation         |
+| Parameter            |
+| -------------------- |
+| `--steps`            |
+| `--eval_rate`        |
+| `--eval_steps`       |
+| `--save_rate`        |
+| `--warm_up`          |
+| `--total_batch_size` |
+| `--batch_size`       |
+| `--seed`             |
+| `--lr`               |
+| `--min_lr`           |
+| `--weight_decay`     |
+| `--beta1`            |
+| `--beta2`            |
+| `--backend`          |
+| `--save_file_name`   |
+| `--data_file_name`   |
+| `--compile_model`    |
 
 #### 4️⃣ Generate Text
 ```bash
