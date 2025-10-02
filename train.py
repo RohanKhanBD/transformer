@@ -157,7 +157,7 @@ def main():
             param_group["lr"] = n_lr
         # ------- Eval -------
         if i % eval_rate == 0 or i == steps:
-            e_loss = est_loss(model, val_data, val_data_iter, eval_steps)
+            e_loss = est_loss(model, val_data, val_data_iter, eval_steps, device)
             if ddp:
                 dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
             writer.add_scalar("loss/val", e_loss, val_i)
@@ -167,6 +167,7 @@ def main():
             )
         # ------- Train -------
         for grad_i in range(grad_ecum):
+            x, y = x.to(device), y.to(device)
             no_sync_enable = grad_i < grad_ecum - 1
             if no_sync_enable and ddp:
                 with model.no_sync():
