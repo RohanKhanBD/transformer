@@ -154,7 +154,6 @@ def main():
     for i in range(train_i, steps + 1):
         ploss = 0.0
         n_lr = get_lr(i, steps, lr, min_lr, warm_up)
-        writer.add_scalar("model/lr", n_lr, i)
         for param_group in optim.param_groups:
             param_group["lr"] = n_lr
         # ------- Eval -------
@@ -164,7 +163,8 @@ def main():
             )
             if ddp:
                 dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
-            writer.add_scalar("loss/val", e_loss, val_i)
+            if master_process:
+                writer.add_scalar("loss/val", e_loss, val_i)
             val_i += 1
             print_master(
                 f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}", master_process
@@ -196,10 +196,8 @@ def main():
             ploss += loss.detach()
         if ddp:
             dist.all_reduce(ploss, op=dist.ReduceOp.AVG)
-        writer.add_scalar("loss/train", ploss, i)
 
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        writer.add_scalar("model/norm", norm.item(), i)
         optim.step()
         optim.zero_grad()
 
@@ -216,6 +214,11 @@ def main():
             f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f}",
             master_process,
         )
+        if master_process:
+            writer.add_scalar("loss/train", ploss, i)
+            writer.add_scalar("model/lr", n_lr, i)
+            writer.add_scalar("model/norm", norm.item(), i)
+            writer.flush()
         # ------- Save -------
         if (i % save_rate == 0 or i == steps) and master_process:
             print_master("saving checkpoint...", master_process)
