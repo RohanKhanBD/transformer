@@ -50,3 +50,5 @@ def train_args():
     parser.add_argument("--save_file_name", type=str, default="nanogpt")
     parser.add_argument("--data_file_name", type=str, default="encoded_data")
     parser.add_argument("--compile_model", type=bool, default=True)
+    args = parser.parse_args()
+    return args
