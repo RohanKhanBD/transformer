@@ -90,6 +90,7 @@ def main():
     )
     grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * world_size)
     model = TransformerLM(model_conf, tok.vocab_size)
+    model.to(device)
     model: TransformerLM = torch.compile(
         model, backend=backend, disable=not compile_model
     )
@@ -147,6 +148,7 @@ def main():
     train_data_iter = iter(train_data)
     val_data_iter = iter(val_data)
     x, y = next(train_data_iter)
+    x, y = x.to(device), y.to(device)
     t0 = time()
 
     for i in range(train_i, steps + 1):
@@ -167,7 +169,6 @@ def main():
             )
         # ------- Train -------
         for grad_i in range(grad_ecum):
-            x, y = x.to(device), y.to(device)
             no_sync_enable = grad_i < grad_ecum - 1
             if no_sync_enable and ddp:
                 with model.no_sync():
@@ -189,6 +190,7 @@ def main():
             except StopIteration:
                 train_data_iter = iter(train_data)
                 x, y = next(train_data_iter)
+            x, y = x.to(device), y.to(device)
             ploss += loss.detach()
         if ddp:
             dist.all_reduce(ploss, op=dist.ReduceOp.AVG)
