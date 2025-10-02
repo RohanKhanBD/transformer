@@ -60,9 +60,13 @@ def main():
         rank = 0
         local_rank = 0
         world_size = 1
-        device = "cuda" if is_cuda else "cpu"
+        device = f"cuda:{local_rank}" if is_cuda else "cpu"
         device_type = "cuda" if is_cuda else "cpu"
         master_process = True
+        if is_cuda:
+            torch.cuda.set_device(device)
+        else:
+            torch.cpu.set_device(device)
 
     # model init
     set_seed(seed + rank)
