@@ -15,6 +15,8 @@ def main():
     temperature = file_args.temperature
     topp = file_args.top_p
     save_file_name = file_args.save_file_name
+    backend = file_args.backend
+    compile_model = file_args.compile_model
 
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     checkpoint = load(save_file_name, map_location=dev)
@@ -23,6 +25,9 @@ def main():
     )
     model_config.flash = False
     model = TransformerLM(model_config, tokenizer.vocab_size).to(dev)
+    model: TransformerLM = torch.compile(
+        model, backend=backend, disable=not compile_model
+    )
     model.load_state_dict(checkpoint["model"])
     model.eval()
 

@@ -27,6 +27,8 @@ def generate_args():
     parser.add_argument("--temperature", type=float, default=1)
     parser.add_argument("--top_p", type=float, default=0.9)
     parser.add_argument("--save_file_name", type=str, default="nanogpt")
+    parser.add_argument("--backend", type=str, default="inductor")
+    parser.add_argument("--compile_model", type=bool, default=True)
     args = parser.parse_args()
     return args
 
