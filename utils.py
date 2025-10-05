@@ -53,6 +53,9 @@ def est_loss(
     val_dataloader: torch.utils.data.DataLoader,
     val_iter,
     e: int,
+    device: str,
+    device_type: str,
+    is_cuda: bool,
 ):
     model.eval()
     losses = torch.zeros(e)
@@ -62,7 +65,11 @@ def est_loss(
         except StopIteration:
             val_iter = iter(val_dataloader)
             x, y = next(val_iter)
-        _, loss = model.forward(x, y)
+        x, y = x.to(device), y.to(device)
+        with torch.autocast(
+            device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
+        ):
+            _, loss = model.forward(x, y)
         losses[i] = loss.item()
     model.train()
     return losses.mean()
