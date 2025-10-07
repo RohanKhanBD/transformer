@@ -160,7 +160,7 @@ class Tokenizer:
                 decoded_ids.append(self.utf_encode_text(self.invers_special_token[i]))
         return self.utf_decode_text("".join(decoded_ids))
 
-    def save(self):
+    def save(self, file: str):
         save(
             [
                 self.vocab_size,
@@ -170,11 +170,11 @@ class Tokenizer:
                 self.special_token,
                 self.invers_special_token,
             ],
-            "tokenizer",
+            file,
             "tokenizer.pt",
         )
 
-    def load(self):
+    def load(self, file: str):
         (
             self.vocab_size,
             self.vocab,
@@ -182,4 +182,4 @@ class Tokenizer:
             self.merges,
             self.special_token,
             self.invers_special_token,
-        ) = load("tokenizer", "tokenizer.pt", False)
+        ) = load(file, "tokenizer.pt", False)

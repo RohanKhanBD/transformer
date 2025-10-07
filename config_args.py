@@ -7,6 +7,7 @@ def tokenize_args(train_tokenizer=False):
         "--dataset_path_huggingface", type=str, default="HuggingFaceFW/fineweb-edu"
     )
     parser.add_argument("--dataset_sub_set", type=str, default="sample-10BT")
+    parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
 
     if train_tokenizer:
         parser.add_argument("--tokenizer_train_shard_size", type=int, default=5_000_000)
@@ -28,6 +29,7 @@ def generate_args():
     parser.add_argument("--top_p", type=float, default=0.9)
     parser.add_argument("--save_file_name", type=str, default="nanogpt")
     parser.add_argument("--backend", type=str, default="inductor")
+    parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--compile_model", type=bool, default=True)
     args = parser.parse_args()
     return args
@@ -51,6 +53,7 @@ def train_args():
     parser.add_argument("--backend", type=str, default="inductor")
     parser.add_argument("--save_file_name", type=str, default="nanogpt")
     parser.add_argument("--data_file_name", type=str, default="encoded_data")
+    parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--compile_model", type=bool, default=True)
     args = parser.parse_args()
     return args

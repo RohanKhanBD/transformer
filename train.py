@@ -38,10 +38,11 @@ def main():
     backend = file_args.backend
     save_file_name = file_args.save_file_name
     data_file_name = file_args.data_file_name
+    tokenizer_file_name = file_args.tokenizer_file_name
 
     writer = SummaryWriter()
     tok = Tokenizer()
-    tok.load()
+    tok.load(tokenizer_file_name)
     is_cuda = torch.cuda.is_available()
 
     # Distributed Data Parallel init
