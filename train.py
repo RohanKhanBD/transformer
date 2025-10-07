@@ -39,6 +39,7 @@ def main():
     save_file_name = file_args.save_file_name
     data_file_name = file_args.data_file_name
     tokenizer_file_name = file_args.tokenizer_file_name
+    use_autocast = file_args.use_autocast
 
     writer = SummaryWriter()
     tok = Tokenizer()
@@ -176,14 +177,18 @@ def main():
             if no_sync_enable and ddp:
                 with model.no_sync():
                     with torch.autocast(
-                        device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
+                        device_type=device_type,
+                        dtype=torch.bfloat16,
+                        enabled=is_cuda and use_autocast,
                     ):
                         _, loss = model.forward(x, y)
                     loss = loss / grad_ecum
                     loss.backward()
             else:
                 with torch.autocast(
-                    device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
+                    device_type=device_type,
+                    dtype=torch.bfloat16,
+                    enabled=is_cuda and use_autocast,
                 ):
                     _, loss = model.forward(x, y)
                 loss = loss / grad_ecum

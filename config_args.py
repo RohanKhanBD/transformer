@@ -55,5 +55,6 @@ def train_args():
     parser.add_argument("--data_file_name", type=str, default="encoded_data")
     parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--compile_model", type=bool, default=True)
+    parser.add_argument("--use_autocast", type=bool, default=True)
     args = parser.parse_args()
     return args
