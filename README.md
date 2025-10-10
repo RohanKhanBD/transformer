@@ -42,7 +42,14 @@ pip install -r requirements.txt
 
 You have two options for tokenization:
 
-### Option A: Train Your Own Tokenizer (Recommended for Custom Vocabularies)
+### Option A: Use Mistral's Pre-trained Tokenizer (Recommended)
+Skip the tokenizer training step and use the `--load_mistral_tokenizer=True` flag in subsequent steps. This leverages Mistral's proven vocabulary and is great for quick experimentation and production use.
+
+**Setup:** Download only the `tokenizer.json` file (not the model weights) from [Mistral-Nemo-Base-2407](https://huggingface.co/mistralai/Mistral-Nemo-Base-2407/tree/main) and place it in your project directory.
+
+> **💡 Tip:** Using Mistral's tokenizer means you can skip tokenizer training entirely and start directly with data tokenization!
+
+### Option B: Train Your Own Tokenizer (For Custom Vocabularies)
 ```bash
 python train_tokenizer.py
 ```
@@ -60,14 +67,7 @@ python train_tokenizer.py
 - 📦 [Custom BPE Tokenizer on Kaggle](https://www.kaggle.com/models/rohankhanbd/bpetokenizer) - Download to skip training
 - 📊 [Pre-tokenized FineWeb-Edu Dataset](https://www.kaggle.com/datasets/rohankhanbd/half-tokenized-fineweb-edu-10b-subset) - Already tokenized with the custom tokenizer above
 
-> **⚠️ Important:** These pre-trained resources only work with the custom tokenizer workflow (Option A). They are **not compatible** with Mistral's tokenizer.
-
-### Option B: Use Mistral's Pre-trained Tokenizer (Fast Start)
-Skip the tokenizer training step and use the `--load_mistral_tokenizer=True` flag in subsequent steps. This leverages Mistral's proven vocabulary and is great for quick experimentation.
-
-**Setup:** Download only the `tokenizer.json` file (not the model weights) from [Mistral-Nemo-Base-2407](https://huggingface.co/mistralai/Mistral-Nemo-Base-2407/tree/main) and place it in your project directory.
-
-> **💡 Tip:** Using Mistral's tokenizer means you can skip step 1 entirely and start directly with data tokenization. However, you'll need to tokenize your own dataset from scratch.
+> **⚠️ Important:** These pre-trained resources only work with the custom tokenizer workflow (Option B). They are **not compatible** with Mistral's tokenizer.
 
 ---
 
@@ -171,13 +171,14 @@ python generate.py --input_text "Once upon a time" --num_tokens_to_generate 50 -
 
 ### Which Tokenizer Should I Use?
 
-| Use Case                | Recommendation                                 |
-| ----------------------- | ---------------------------------------------- |
-| 🚀 Quick experimentation | Mistral tokenizer (`--load_mistral_tokenizer`) |
-| 🔬 Research & learning   | Custom tokenizer (train your own)              |
-| 🌍 Non-English languages | Custom tokenizer trained on your data          |
-| 📚 Domain-specific text  | Custom tokenizer trained on domain data        |
-| ⚡ Fast prototyping      | Mistral tokenizer (`--load_mistral_tokenizer`) |
+| Use Case                | Recommendation                          |
+| ----------------------- | --------------------------------------- |
+| 🚀 Most users            | **Mistral tokenizer** (recommended)     |
+| ⚡ Quick experimentation | **Mistral tokenizer**                   |
+| 🏭 Production use        | **Mistral tokenizer**                   |
+| 🔬 Research & learning   | Custom tokenizer                        |
+| 🌍 Non-English languages | Custom tokenizer trained on your data   |
+| 📚 Domain-specific text  | Custom tokenizer trained on domain data |
 
 ---
 
