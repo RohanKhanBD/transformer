@@ -63,7 +63,9 @@ python train_tokenizer.py
 > **⚠️ Important:** These pre-trained resources only work with the custom tokenizer workflow (Option A). They are **not compatible** with Mistral's tokenizer.
 
 ### Option B: Use Mistral's Pre-trained Tokenizer (Fast Start)
-Skip the tokenizer training step and use the `--load_mistral_tokenizer` flag in subsequent steps. This leverages Mistral's proven vocabulary and is great for quick experimentation.
+Skip the tokenizer training step and use the `--load_mistral_tokenizer=True` flag in subsequent steps. This leverages Mistral's proven vocabulary and is great for quick experimentation.
+
+**Setup:** Download only the `tokenizer.json` file (not the model weights) from [Mistral-Nemo-Base-2407](https://huggingface.co/mistralai/Mistral-Nemo-Base-2407/tree/main) and place it in your project directory.
 
 > **💡 Tip:** Using Mistral's tokenizer means you can skip step 1 entirely and start directly with data tokenization. However, you'll need to tokenize your own dataset from scratch.
 
@@ -82,13 +84,13 @@ python tokenize_data.py --load_mistral_tokenizer=True
 
 **Data Tokenization Options:**
 
-| Parameter                      | Description                               |
-| ------------------------------ | ----------------------------------------- |
-| `--dataset_path_huggingface`   | HuggingFace dataset path                  |
-| `--dataset_sub_set`            | Subset of the dataset to use              |
-| `--data_file_name`             | Output filename for tokenized data        |
-| `--encoded_dataset_shard_size` | Number of examples per shard              |
-| `--load_mistral_tokenizer`     | Use Mistral's tokenizer instead of custom |
+| Parameter                      | Description                                                |
+| ------------------------------ | ---------------------------------------------------------- |
+| `--dataset_path_huggingface`   | HuggingFace dataset path                                   |
+| `--dataset_sub_set`            | Subset of the dataset to use                               |
+| `--data_file_name`             | Output filename for tokenized data                         |
+| `--encoded_dataset_shard_size` | Number of examples per shard                               |
+| `--load_mistral_tokenizer`     | Use Mistral's tokenizer instead of custom (default: False) |
 
 **Pre-tokenized Dataset (Custom Tokenizer Only):**
 - 📊 [FineWeb-Edu 10B Subset](https://www.kaggle.com/datasets/rohankhanbd/half-tokenized-fineweb-edu-10b-subset) - Skip tokenization if using the custom tokenizer
@@ -106,26 +108,26 @@ python train.py --load_mistral_tokenizer=True
 
 **Training Options:**
 
-| Parameter                  | Description                               |
-| -------------------------- | ----------------------------------------- |
-| `--steps`                  | Total training steps                      |
-| `--eval_rate`              | Evaluate every N steps                    |
-| `--eval_steps`             | Number of evaluation steps                |
-| `--save_rate`              | Save checkpoint every N steps             |
-| `--warm_up`                | Learning rate warmup steps                |
-| `--total_batch_size`       | Total batch size across all GPUs          |
-| `--batch_size`             | Batch size per GPU                        |
-| `--seed`                   | Random seed for reproducibility           |
-| `--lr`                     | Peak learning rate                        |
-| `--min_lr`                 | Minimum learning rate                     |
-| `--weight_decay`           | Weight decay for regularization           |
-| `--beta1`                  | Adam beta1 parameter                      |
-| `--beta2`                  | Adam beta2 parameter                      |
-| `--backend`                | Distributed backend (nccl/gloo)           |
-| `--save_file_name`         | Checkpoint filename                       |
-| `--data_file_name`         | Tokenized data filename                   |
-| `--compile_model`          | Use PyTorch 2.0 compilation               |
-| `--load_mistral_tokenizer` | Use Mistral's tokenizer instead of custom |
+| Parameter                  | Description                                                |
+| -------------------------- | ---------------------------------------------------------- |
+| `--steps`                  | Total training steps                                       |
+| `--eval_rate`              | Evaluate every N steps                                     |
+| `--eval_steps`             | Number of evaluation steps                                 |
+| `--save_rate`              | Save checkpoint every N steps                              |
+| `--warm_up`                | Learning rate warmup steps                                 |
+| `--total_batch_size`       | Total batch size across all GPUs                           |
+| `--batch_size`             | Batch size per GPU                                         |
+| `--seed`                   | Random seed for reproducibility                            |
+| `--lr`                     | Peak learning rate                                         |
+| `--min_lr`                 | Minimum learning rate                                      |
+| `--weight_decay`           | Weight decay for regularization                            |
+| `--beta1`                  | Adam beta1 parameter                                       |
+| `--beta2`                  | Adam beta2 parameter                                       |
+| `--backend`                | Distributed backend (nccl/gloo)                            |
+| `--save_file_name`         | Checkpoint filename                                        |
+| `--data_file_name`         | Tokenized data filename                                    |
+| `--compile_model`          | Use PyTorch 2.0 compilation                                |
+| `--load_mistral_tokenizer` | Use Mistral's tokenizer instead of custom (default: False) |
 
 ### 3️⃣ Generate Text
 ```bash
@@ -138,14 +140,14 @@ python generate.py --input_text "Hello" --num_tokens_to_generate 20 --load_mistr
 
 **Generation Options:**
 
-| Parameter                  | Description                                        |
-| -------------------------- | -------------------------------------------------- |
-| `--input_text`             | Starting text for generation                       |
-| `--num_tokens_to_generate` | Number of tokens to generate                       |
-| `--temperature`            | Randomness control (0.0-2.0, higher = more random) |
-| `--top_p`                  | Nucleus sampling threshold (0.0-1.0)               |
-| `--save_file_name`         | Model checkpoint filename to load                  |
-| `--load_mistral_tokenizer` | Use Mistral's tokenizer instead of custom          |
+| Parameter                  | Description                                                |
+| -------------------------- | ---------------------------------------------------------- |
+| `--input_text`             | Starting text for generation                               |
+| `--num_tokens_to_generate` | Number of tokens to generate                               |
+| `--temperature`            | Randomness control (0.0-2.0, higher = more random)         |
+| `--top_p`                  | Nucleus sampling threshold (0.0-1.0)                       |
+| `--save_file_name`         | Model checkpoint filename to load                          |
+| `--load_mistral_tokenizer` | Use Mistral's tokenizer instead of custom (default: False) |
 
 **Examples:**
 ```bash
