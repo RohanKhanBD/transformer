@@ -8,6 +8,7 @@ A simple yet powerful Transformer LLM implementation built with PyTorch.
 
 ### What This Code Does
 - 🔤 **Train BPE tokenizer from scratch** - Build your own vocabulary
+- 📥 **Load Mistral tokenizer** - Use pre-trained Mistral BPE tokenizer
 - 📊 **Dataset tokenization** - Process data with pre-trained BPE tokenizer  
 - 🧠 **Transformer training** - Train models from the ground up
 - 💬 **Text generation** - Generate text from pre-trained models
