@@ -14,9 +14,13 @@ def main():
     backend = file_args.backend
     compile_model = file_args.compile_model
     tokenizer_file_name = file_args.tokenizer_file_name
+    load_mistral_tokenizer = file_args.load_mistral_tokenizer
 
     tokenizer = Tokenizer()
-    tokenizer.load(tokenizer_file_name)
+    if load_mistral_tokenizer:
+        tokenizer.load_mistral_tokenizer(tokenizer_file_name)
+    else:
+        tokenizer.load(tokenizer_file_name)
 
     input_tokens = [tokenizer.encode(file_args.input_text) for _ in range(10)]
 

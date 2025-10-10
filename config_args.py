@@ -16,6 +16,7 @@ def tokenize_args(train_tokenizer=False):
     else:
         parser.add_argument("--data_file_name", type=str, default="encoded_data")
         parser.add_argument("--encoded_dataset_shard_size", type=int, default=int(1e8))
+        parser.add_argument("--load_mistral_tokenizer", type=bool, default=False)
 
     args = parser.parse_args()
     return args
@@ -31,6 +32,7 @@ def generate_args():
     parser.add_argument("--backend", type=str, default="inductor")
     parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--compile_model", type=bool, default=True)
+    parser.add_argument("--load_mistral_tokenizer", type=bool, default=False)
     args = parser.parse_args()
     return args
 
@@ -56,5 +58,6 @@ def train_args():
     parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--compile_model", type=bool, default=True)
     parser.add_argument("--use_autocast", type=bool, default=True)
+    parser.add_argument("--load_mistral_tokenizer", type=bool, default=False)
     args = parser.parse_args()
     return args
