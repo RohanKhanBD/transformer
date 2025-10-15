@@ -1,4 +1,5 @@
 import regex
+import json
 from tqdm import tqdm
 from utils import load, save
 from collections import defaultdict
@@ -154,10 +155,10 @@ class Tokenizer:
     def decode(self, ids: list, disable: bool = False):
         decoded_ids = []
         for i in tqdm(ids, "decoding", disable=disable):
-            if i in self.vocab_decode:
-                decoded_ids.append(self.vocab_decode[i])
-            elif i in self.invers_special_token:
+            if i in self.invers_special_token:
                 decoded_ids.append(self.utf_encode_text(self.invers_special_token[i]))
+            elif i in self.vocab_decode:
+                decoded_ids.append(self.vocab_decode[i])
         return self.utf_decode_text("".join(decoded_ids))
 
     def save(self, file: str):
@@ -183,3 +184,19 @@ class Tokenizer:
             self.special_token,
             self.invers_special_token,
         ) = load(file, "tokenizer.pt", False)
+
+    def load_mistral_tokenizer(self, file: str):
+        with open(f"{file}/tokenizer.json", "r", encoding="utf-8") as file:
+            tokenizer = json.load(file)
+        self.pattern = regex.compile(
+            tokenizer["pre_tokenizer"]["pretokenizers"][0]["pattern"]["Regex"]
+        )
+        merges_list = tokenizer["model"]["merges"]
+        self.merges = {
+            tuple(merges_list[i].split()): i for i in range(len(merges_list))
+        }
+        self.vocab: dict = tokenizer["model"]["vocab"]
+        self.vocab_decode = {v: k for k, v in self.vocab.items()}
+        self.special_token = {i["content"]: i["id"] for i in tokenizer["added_tokens"]}
+        self.invers_special_token = {v: k for k, v in self.special_token.items()}
+        self.vocab_size = len(self.vocab)

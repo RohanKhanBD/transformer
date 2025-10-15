@@ -40,10 +40,14 @@ def main():
     data_file_name = file_args.data_file_name
     tokenizer_file_name = file_args.tokenizer_file_name
     use_autocast = file_args.use_autocast
+    load_mistral_tokenizer = file_args.load_mistral_tokenizer
 
     writer = SummaryWriter()
     tok = Tokenizer()
-    tok.load(tokenizer_file_name)
+    if load_mistral_tokenizer:
+        tok.load_mistral_tokenizer(tokenizer_file_name)
+    else:
+        tok.load(tokenizer_file_name)
     is_cuda = torch.cuda.is_available()
 
     # Distributed Data Parallel init
@@ -161,7 +165,14 @@ def main():
         # ------- Eval -------
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(
-                model, val_data, val_data_iter, eval_steps, device, device_type, is_cuda
+                model,
+                val_data,
+                val_data_iter,
+                eval_steps,
+                device,
+                device_type,
+                is_cuda,
+                use_autocast,
             )
             if ddp:
                 dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)

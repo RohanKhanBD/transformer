@@ -16,18 +16,27 @@ if __name__ == "__main__":
     dataset_sub_set = file_args.dataset_sub_set
     encoded_dataset_shard_size = file_args.encoded_dataset_shard_size
     tokenizer_file_name = file_args.tokenizer_file_name
+    load_mistral_tokenizer = file_args.load_mistral_tokenizer
 
     train_data = datasets.load_dataset(
         dataset_path_huggingface, dataset_sub_set, split="train", streaming=True
     )
 
     tok = Tokenizer()
-    tok.load(tokenizer_file_name)
+    if load_mistral_tokenizer:
+        tok.load_mistral_tokenizer(tokenizer_file_name)
+    else:
+        tok.load(tokenizer_file_name)
 
     def tokenize(token):
         token = token["text"]
-        data = [tok.special_token["<|endoftext|>"]]
-        data.extend(tok.encode(token))
+        if load_mistral_tokenizer:
+            data = [tok.special_token["<s>"]]
+            data.extend(tok.encode(token))
+            data.append(tok.special_token["</s>"])
+        else:
+            data = [tok.special_token["<|endoftext|>"]]
+            data.extend(tok.encode(token))
         return data
 
     nproc = max(1, os.cpu_count() // 2)
