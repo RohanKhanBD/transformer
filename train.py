@@ -165,7 +165,14 @@ def main():
         # ------- Eval -------
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(
-                model, val_data, val_data_iter, eval_steps, device, device_type, is_cuda
+                model,
+                val_data,
+                val_data_iter,
+                eval_steps,
+                device,
+                device_type,
+                is_cuda,
+                use_autocast,
             )
             if ddp:
                 dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
