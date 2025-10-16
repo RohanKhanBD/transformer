@@ -77,19 +77,19 @@ def main():
     # model init
     set_seed(seed + rank)
     model_conf = TransformerLM.get_transformer_config(
-        maxlen=256,
-        embedding_dim=768,
-        num_heads=12,
-        n_layers=12,
-        inter_dim=768 * 2,
-        window_size=128,
+        maxlen=1024,
+        embedding_dim=512,
+        num_heads=16,
+        n_layers=4,
+        inter_dim=512 * 2,
+        window_size=768,
         mla=True,
-        kv_lora_rank=1024,
+        kv_lora_rank=128,
         qk_rope_dim=64,
         qk_nope_dim=256,
         v_dim=256,
         flash=is_cuda,
-        atten_types=[AttentionMask.Local],
+        atten_types=[AttentionMask.Global, AttentionMask.Local],
     )
     assert total_batch_size % (batch_size * model_conf.maxlen * world_size) == 0, (
         "total_batch_size has divisible by batch_size * maxlen * world_size"
