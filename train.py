@@ -84,12 +84,12 @@ def main():
         inter_dim=512 * 2,
         window_size=768,
         mla=True,
-        kv_lora_rank=128,
+        kv_lora_rank=64,
         qk_rope_dim=64,
-        qk_nope_dim=256,
-        v_dim=256,
+        qk_nope_dim=128,
+        v_dim=128,
         flash=is_cuda,
-        atten_types=[AttentionMask.Global, AttentionMask.Local],
+        atten_types=[AttentionMask.Local],
     )
     assert total_batch_size % (batch_size * model_conf.maxlen * world_size) == 0, (
         "total_batch_size has divisible by batch_size * maxlen * world_size"
