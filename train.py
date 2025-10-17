@@ -78,10 +78,10 @@ def main():
     set_seed(seed + rank)
     model_conf = TransformerLM.get_transformer_config(
         maxlen=512,
-        embedding_dim=512,
-        num_heads=4,
-        n_layers=4,
-        inter_dim=512 + 128,
+        embedding_dim=256,
+        num_heads=8,
+        n_layers=8,
+        inter_dim=256 + 128,
         window_size=384,
         mla=True,
         kv_lora_rank=64,
