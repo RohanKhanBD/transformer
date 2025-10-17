@@ -77,7 +77,7 @@ def main():
     # model init
     set_seed(seed + rank)
     model_conf = TransformerLM.get_transformer_config(
-        maxlen=1024,
+        maxlen=512,
         embedding_dim=512,
         num_heads=4,
         n_layers=4,
