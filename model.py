@@ -458,11 +458,18 @@ class TransformerLM(nn.Module):
             if pn.endswith("proj.weight"):
                 nn.init.normal_(p, std=0.02 / sqrt(2 * conf.n_layers), mean=0.0)
 
-        self.register_buffer(
-            "freq_cis",
-            rope(conf.embedding_dim // conf.num_heads, conf.maxlen * 2, conf.base),
-            False,
-        )
+        if conf.mla:
+            self.register_buffer(
+                "freq_cis",
+                rope(conf.qk_rope_dim, conf.maxlen * 2, conf.base),
+                False,
+            )
+        else:
+            self.register_buffer(
+                "freq_cis",
+                rope(conf.embedding_dim // conf.num_heads, conf.maxlen * 2, conf.base),
+                False,
+            )
         self.register_buffer(
             "mask", torch.full((conf.maxlen, conf.maxlen), -float("inf")).triu(1), False
         )
