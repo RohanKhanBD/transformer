@@ -79,7 +79,7 @@ def main():
     model_conf = TransformerLM.get_transformer_config(
         maxlen=1024,
         embedding_dim=512,
-        num_heads=16,
+        num_heads=4,
         n_layers=4,
         inter_dim=512 * 2,
         window_size=768,
