@@ -43,6 +43,8 @@ def main():
     tokenizer_file_name = file_args.tokenizer_file_name
     use_autocast = file_args.use_autocast
     load_mistral_tokenizer = file_args.load_mistral_tokenizer
+    dtype = file_args.dtype
+    dtype = {"bf16": torch.bfloat16, "f16": torch.float16}[dtype]
 
     writer = SummaryWriter()
     tok = Tokenizer()
@@ -154,7 +156,8 @@ def main():
         print_master("loaded: False", master_process)
 
     # amp scaler
-    scaler = GradScaler(enabled=use_autocast)
+    use_scaler = use_autocast and (dtype == torch.bfloat16)
+    scaler = GradScaler(enabled=use_scaler)
 
     train_data_iter = iter(train_data)
     val_data_iter = iter(val_data)
@@ -194,7 +197,7 @@ def main():
                 with model.no_sync():
                     with torch.autocast(
                         device_type=device_type,
-                        dtype=torch.bfloat16,
+                        dtype=dtype,
                         enabled=is_cuda and use_autocast,
                     ):
                         _, loss = model.forward(x, y)
@@ -203,7 +206,7 @@ def main():
             else:
                 with torch.autocast(
                     device_type=device_type,
-                    dtype=torch.bfloat16,
+                    dtype=dtype,
                     enabled=is_cuda and use_autocast,
                 ):
                     _, loss = model.forward(x, y)
