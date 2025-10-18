@@ -156,7 +156,7 @@ def main():
         print_master("loaded: False", master_process)
 
     # amp scaler
-    use_scaler = use_autocast and (dtype == torch.bfloat16)
+    use_scaler = use_autocast and (dtype == torch.float16)
     scaler = GradScaler(enabled=use_scaler)
 
     train_data_iter = iter(train_data)
