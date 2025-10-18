@@ -56,6 +56,7 @@ def train_args():
     parser.add_argument("--save_file_name", type=str, default="lilgpt")
     parser.add_argument("--data_file_name", type=str, default="encoded_data")
     parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
+    parser.add_argument("--dtype", type=str, default="bf16")
     parser.add_argument("--compile_model", type=bool, default=True)
     parser.add_argument("--use_autocast", type=bool, default=True)
     parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)

@@ -126,6 +126,7 @@ python train.py --load_mistral_tokenizer=True
 | `--backend`                |
 | `--save_file_name`         |
 | `--data_file_name`         |
+| `--dtype`                  |
 | `--compile_model`          |
 | `--load_mistral_tokenizer` |
 

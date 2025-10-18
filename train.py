@@ -2,6 +2,8 @@ import os
 
 import torch
 import torch.distributed as dist
+
+from torch import GradScaler
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -41,6 +43,8 @@ def main():
     tokenizer_file_name = file_args.tokenizer_file_name
     use_autocast = file_args.use_autocast
     load_mistral_tokenizer = file_args.load_mistral_tokenizer
+    dtype = file_args.dtype
+    dtype = {"bf16": torch.bfloat16, "f16": torch.float16}[dtype]
 
     writer = SummaryWriter()
     tok = Tokenizer()
@@ -151,6 +155,10 @@ def main():
         val_i = 1
         print_master("loaded: False", master_process)
 
+    # amp scaler
+    use_scaler = use_autocast and (dtype == torch.bfloat16)
+    scaler = GradScaler(enabled=use_scaler)
+
     train_data_iter = iter(train_data)
     val_data_iter = iter(val_data)
     x, y = next(train_data_iter)
@@ -173,6 +181,7 @@ def main():
                 device_type,
                 is_cuda,
                 use_autocast,
+                dtype,
             )
             if ddp:
                 dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
@@ -189,21 +198,21 @@ def main():
                 with model.no_sync():
                     with torch.autocast(
                         device_type=device_type,
-                        dtype=torch.bfloat16,
+                        dtype=dtype,
                         enabled=is_cuda and use_autocast,
                     ):
                         _, loss = model.forward(x, y)
                     loss = loss / grad_ecum
-                    loss.backward()
+                    scaler.scale(loss).backward()
             else:
                 with torch.autocast(
                     device_type=device_type,
-                    dtype=torch.bfloat16,
+                    dtype=dtype,
                     enabled=is_cuda and use_autocast,
                 ):
                     _, loss = model.forward(x, y)
                 loss = loss / grad_ecum
-                loss.backward()
+                scaler.scale(loss).backward()
             try:
                 x, y = next(train_data_iter)
             except StopIteration:
@@ -214,8 +223,10 @@ def main():
         if ddp:
             dist.all_reduce(ploss, op=dist.ReduceOp.AVG)
 
+        scaler.unscale_(optim)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optim.step()
+        scaler.step(optim)
+        scaler.update()
         optim.zero_grad()
 
         if is_cuda:
