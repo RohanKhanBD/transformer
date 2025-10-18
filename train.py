@@ -2,6 +2,8 @@ import os
 
 import torch
 import torch.distributed as dist
+
+from torch import GradScaler
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -38,10 +40,18 @@ def main():
     backend = file_args.backend
     save_file_name = file_args.save_file_name
     data_file_name = file_args.data_file_name
+    tokenizer_file_name = file_args.tokenizer_file_name
+    use_autocast = file_args.use_autocast
+    load_mistral_tokenizer = file_args.load_mistral_tokenizer
+    dtype = file_args.dtype
+    dtype = {"bf16": torch.bfloat16, "f16": torch.float16}[dtype]
 
     writer = SummaryWriter()
     tok = Tokenizer()
-    tok.load()
+    if load_mistral_tokenizer:
+        tok.load_mistral_tokenizer(tokenizer_file_name)
+    else:
+        tok.load(tokenizer_file_name)
     is_cuda = torch.cuda.is_available()
 
     # Distributed Data Parallel init
@@ -71,17 +81,17 @@ def main():
     # model init
     set_seed(seed + rank)
     model_conf = TransformerLM.get_transformer_config(
-        maxlen=256,
-        embedding_dim=768,
-        num_heads=12,
-        n_layers=12,
-        inter_dim=768 * 2,
-        window_size=128,
+        maxlen=512,
+        embedding_dim=256,
+        num_heads=8,
+        n_layers=8,
+        inter_dim=256 + 128,
+        window_size=384,
         mla=True,
-        kv_lora_rank=1024,
+        kv_lora_rank=64,
         qk_rope_dim=64,
-        qk_nope_dim=256,
-        v_dim=256,
+        qk_nope_dim=128,
+        v_dim=128,
         flash=is_cuda,
         atten_types=[AttentionMask.Local],
     )
@@ -145,6 +155,10 @@ def main():
         val_i = 1
         print_master("loaded: False", master_process)
 
+    # amp scaler
+    use_scaler = use_autocast and (dtype == torch.float16)
+    scaler = GradScaler(enabled=use_scaler)
+
     train_data_iter = iter(train_data)
     val_data_iter = iter(val_data)
     x, y = next(train_data_iter)
@@ -159,7 +173,15 @@ def main():
         # ------- Eval -------
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(
-                model, val_data, val_data_iter, eval_steps, device, device_type, is_cuda
+                model,
+                val_data,
+                val_data_iter,
+                eval_steps,
+                device,
+                device_type,
+                is_cuda,
+                use_autocast,
+                dtype,
             )
             if ddp:
                 dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
@@ -175,18 +197,22 @@ def main():
             if no_sync_enable and ddp:
                 with model.no_sync():
                     with torch.autocast(
-                        device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
+                        device_type=device_type,
+                        dtype=dtype,
+                        enabled=is_cuda and use_autocast,
                     ):
                         _, loss = model.forward(x, y)
                     loss = loss / grad_ecum
-                    loss.backward()
+                    scaler.scale(loss).backward()
             else:
                 with torch.autocast(
-                    device_type=device_type, dtype=torch.bfloat16, enabled=is_cuda
+                    device_type=device_type,
+                    dtype=dtype,
+                    enabled=is_cuda and use_autocast,
                 ):
                     _, loss = model.forward(x, y)
                 loss = loss / grad_ecum
-                loss.backward()
+                scaler.scale(loss).backward()
             try:
                 x, y = next(train_data_iter)
             except StopIteration:
@@ -197,8 +223,10 @@ def main():
         if ddp:
             dist.all_reduce(ploss, op=dist.ReduceOp.AVG)
 
+        scaler.unscale_(optim)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optim.step()
+        scaler.step(optim)
+        scaler.update()
         optim.zero_grad()
 
         if is_cuda:

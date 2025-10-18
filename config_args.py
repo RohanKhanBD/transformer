@@ -7,6 +7,7 @@ def tokenize_args(train_tokenizer=False):
         "--dataset_path_huggingface", type=str, default="HuggingFaceFW/fineweb-edu"
     )
     parser.add_argument("--dataset_sub_set", type=str, default="sample-10BT")
+    parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
 
     if train_tokenizer:
         parser.add_argument("--tokenizer_train_shard_size", type=int, default=5_000_000)
@@ -15,6 +16,7 @@ def tokenize_args(train_tokenizer=False):
     else:
         parser.add_argument("--data_file_name", type=str, default="encoded_data")
         parser.add_argument("--encoded_dataset_shard_size", type=int, default=int(1e8))
+        parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
 
     args = parser.parse_args()
     return args
@@ -26,9 +28,11 @@ def generate_args():
     parser.add_argument("--num_tokens_to_generate", type=int, default=100)
     parser.add_argument("--temperature", type=float, default=1)
     parser.add_argument("--top_p", type=float, default=0.9)
-    parser.add_argument("--save_file_name", type=str, default="nanogpt")
+    parser.add_argument("--save_file_name", type=str, default="lilgpt")
     parser.add_argument("--backend", type=str, default="inductor")
+    parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--compile_model", type=bool, default=True)
+    parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
     args = parser.parse_args()
     return args
 
@@ -49,8 +53,12 @@ def train_args():
     parser.add_argument("--beta1", type=float, default=0.9)
     parser.add_argument("--beta2", type=float, default=0.97)
     parser.add_argument("--backend", type=str, default="inductor")
-    parser.add_argument("--save_file_name", type=str, default="nanogpt")
+    parser.add_argument("--save_file_name", type=str, default="lilgpt")
     parser.add_argument("--data_file_name", type=str, default="encoded_data")
+    parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
+    parser.add_argument("--dtype", type=str, default="bf16")
     parser.add_argument("--compile_model", type=bool, default=True)
+    parser.add_argument("--use_autocast", type=bool, default=True)
+    parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
     args = parser.parse_args()
     return args

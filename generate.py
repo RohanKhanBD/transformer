@@ -6,17 +6,23 @@ from config_args import generate_args
 
 
 def main():
-    tokenizer = Tokenizer()
-    tokenizer.load()
-
     file_args = generate_args()
-    input_tokens = [tokenizer.encode(file_args.input_text) for _ in range(10)]
     num_tokens_to_generate = file_args.num_tokens_to_generate
     temperature = file_args.temperature
     topp = file_args.top_p
     save_file_name = file_args.save_file_name
     backend = file_args.backend
     compile_model = file_args.compile_model
+    tokenizer_file_name = file_args.tokenizer_file_name
+    load_mistral_tokenizer = file_args.load_mistral_tokenizer
+
+    tokenizer = Tokenizer()
+    if load_mistral_tokenizer:
+        tokenizer.load_mistral_tokenizer(tokenizer_file_name)
+    else:
+        tokenizer.load(tokenizer_file_name)
+
+    input_tokens = [tokenizer.encode(file_args.input_text) for _ in range(10)]
 
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     checkpoint = load(save_file_name, map_location=dev)
@@ -31,7 +37,13 @@ def main():
     model.load_state_dict(checkpoint["model"])
     model.eval()
 
-    stop_tokens = [tokenizer.special_token["<|endoftext|>"]]
+    if load_mistral_tokenizer:
+        stop_tokens = [
+            tokenizer.special_token["</s>"],
+            tokenizer.special_token["<unk>"],
+        ]
+    else:
+        stop_tokens = [tokenizer.special_token["<|endoftext|>"]]
     generated_tokens = model.generate(
         dev,
         tokenizer.special_token["<pad>"],

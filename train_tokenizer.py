@@ -8,6 +8,7 @@ if __name__ == "__main__":
     dataset_sub_set = file_args.dataset_sub_set
     tokenizer_train_shard_size = file_args.tokenizer_train_shard_size
     trust_remote_code = file_args.trust_remote_code
+    tokenizer_file_name = file_args.tokenizer_file_name
 
     data_sets = datasets.load_dataset(
         dataset_path_huggingface,
@@ -33,4 +34,4 @@ if __name__ == "__main__":
     tok.regester_special_token({"<pad>": 0, "<|endoftext|>": 1})
     print(tok.vocab)
     print(tok.special_token)
-    tok.save()
+    tok.save(tokenizer_file_name)
