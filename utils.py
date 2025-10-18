@@ -57,6 +57,7 @@ def est_loss(
     device_type: str,
     is_cuda: bool,
     use_autocast: bool,
+    dtype: torch.dtype,
 ):
     model.eval()
     losses = torch.zeros(eval_steps)
@@ -69,7 +70,7 @@ def est_loss(
         x, y = x.to(device), y.to(device)
         with torch.autocast(
             device_type=device_type,
-            dtype=torch.bfloat16,
+            dtype=dtype,
             enabled=is_cuda and use_autocast,
         ):
             _, loss = model.forward(x, y)

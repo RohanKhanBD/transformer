@@ -181,6 +181,7 @@ def main():
                 device_type,
                 is_cuda,
                 use_autocast,
+                dtype,
             )
             if ddp:
                 dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
