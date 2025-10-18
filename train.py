@@ -2,6 +2,8 @@ import os
 
 import torch
 import torch.distributed as dist
+
+from torch import GradScaler
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -151,6 +153,9 @@ def main():
         val_i = 1
         print_master("loaded: False", master_process)
 
+    # amp scaler
+    scaler = GradScaler(device) if use_autocast else None
+
     train_data_iter = iter(train_data)
     val_data_iter = iter(val_data)
     x, y = next(train_data_iter)
@@ -194,7 +199,10 @@ def main():
                     ):
                         _, loss = model.forward(x, y)
                     loss = loss / grad_ecum
-                    loss.backward()
+                    if use_autocast:
+                        scaler.scale(loss).backward()
+                    else:
+                        loss.backward()
             else:
                 with torch.autocast(
                     device_type=device_type,
@@ -203,7 +211,10 @@ def main():
                 ):
                     _, loss = model.forward(x, y)
                 loss = loss / grad_ecum
-                loss.backward()
+                if use_autocast:
+                    scaler.scale(loss).backward()
+                else:
+                    loss.backward()
             try:
                 x, y = next(train_data_iter)
             except StopIteration:
@@ -214,8 +225,14 @@ def main():
         if ddp:
             dist.all_reduce(ploss, op=dist.ReduceOp.AVG)
 
+        if use_autocast:
+            scaler.unscale_(optim)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optim.step()
+        if use_autocast:
+            scaler.step(optim)
+            scaler.update()
+        else:
+            optim.step()
         optim.zero_grad()
 
         if is_cuda:
