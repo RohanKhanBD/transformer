@@ -154,7 +154,7 @@ def main():
         print_master("loaded: False", master_process)
 
     # amp scaler
-    scaler = GradScaler(device) if use_autocast else None
+    scaler = GradScaler(enabled=use_autocast)
 
     train_data_iter = iter(train_data)
     val_data_iter = iter(val_data)
@@ -199,10 +199,7 @@ def main():
                     ):
                         _, loss = model.forward(x, y)
                     loss = loss / grad_ecum
-                    if use_autocast:
-                        scaler.scale(loss).backward()
-                    else:
-                        loss.backward()
+                    scaler.scale(loss).backward()
             else:
                 with torch.autocast(
                     device_type=device_type,
@@ -211,10 +208,7 @@ def main():
                 ):
                     _, loss = model.forward(x, y)
                 loss = loss / grad_ecum
-                if use_autocast:
-                    scaler.scale(loss).backward()
-                else:
-                    loss.backward()
+                scaler.scale(loss).backward()
             try:
                 x, y = next(train_data_iter)
             except StopIteration:
@@ -225,14 +219,10 @@ def main():
         if ddp:
             dist.all_reduce(ploss, op=dist.ReduceOp.AVG)
 
-        if use_autocast:
-            scaler.unscale_(optim)
+        scaler.unscale_(optim)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        if use_autocast:
-            scaler.step(optim)
-            scaler.update()
-        else:
-            optim.step()
+        scaler.step(optim)
+        scaler.update()
         optim.zero_grad()
 
         if is_cuda:
