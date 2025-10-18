@@ -60,7 +60,7 @@ def est_loss(
     dtype: torch.dtype,
 ):
     model.eval()
-    losses = torch.zeros(eval_steps)
+    losses = torch.zeros(eval_steps, device=device)
     for i in range(eval_steps):
         try:
             x, y = next(val_iter)
