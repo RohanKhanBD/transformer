@@ -185,6 +185,7 @@ def main():
             )
             if ddp:
                 dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
+                torch.cuda.synchronize()
             if master_process:
                 writer.add_scalar("loss/val", e_loss, val_i)
             val_i += 1
