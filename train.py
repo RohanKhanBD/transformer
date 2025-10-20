@@ -250,7 +250,7 @@ def main():
         # ------- Save -------
         if (i % save_rate == 0 or i == steps) and master_process:
             print_master("saving checkpoint...", master_process)
-            checkpoint = {"model": model.state_dict(), "optim": optim.state_dict()}
+            checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
 
             data_state = {
                 "train_data": train_data,
