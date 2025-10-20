@@ -42,7 +42,7 @@ def train_args():
     parser.add_argument("--steps", type=int, default=18701)
     parser.add_argument("--eval_rate", type=int, default=50)
     parser.add_argument("--eval_steps", type=int, default=100)
-    parser.add_argument("--save_rate", type=int, default=10)
+    parser.add_argument("--save_rate", type=int, default=100)
     parser.add_argument("--warm_up", type=int, default=715)
     parser.add_argument("--total_batch_size", type=int, default=2**19)
     parser.add_argument("--batch_size", type=int, default=16)
