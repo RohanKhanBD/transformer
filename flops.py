@@ -174,4 +174,4 @@ if __name__ == "__main__":
     print(f"params: {tp}")
     print(f"flops: {tf}")
     print(f"palm flops: {pf}")
-    print(pf / tf)
+    print(f"ratio: {pf / tf}")
