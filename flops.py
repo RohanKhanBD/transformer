@@ -94,9 +94,10 @@ def mla_params(
     qk_head_dim = qk_rope_dim + qk_nope_dim
     query = embedding_dim * num_heads * qk_head_dim
     compressed_kv = embedding_dim * (kv_rank + qk_rope_dim)
+    rms_norm = kv_rank
     dcompressed_kv = kv_rank * num_heads * (qk_nope_dim + v_dim)
     proj = num_heads * v_dim * embedding_dim
-    return query + compressed_kv + dcompressed_kv + proj
+    return query + compressed_kv + rms_norm + dcompressed_kv + proj
 
 
 def ffn_params(embedding_dim: int, inter_dim: int):
@@ -112,9 +113,12 @@ def block_params(
     kv_rank: int,
     v_dim: int,
 ):
-    return mla_params(
-        embedding_dim, num_heads, qk_rope_dim, qk_nope_dim, kv_rank, v_dim
-    ) + ffn_params(embedding_dim, inter_dim)
+    rms_norm = embedding_dim * 2
+    return (
+        mla_params(embedding_dim, num_heads, qk_rope_dim, qk_nope_dim, kv_rank, v_dim)
+        + ffn_params(embedding_dim, inter_dim)
+        + rms_norm
+    )
 
 
 def transformer_params(
@@ -132,7 +136,8 @@ def transformer_params(
     blocks = n_layers * block_params(
         embedding_dim, inter_dim, num_heads, qk_rope_dim, qk_nope_dim, kv_rank, v_dim
     )
-    return tokemb + blocks
+    rms_norm = embedding_dim
+    return tokemb + blocks + rms_norm
 
 
 if __name__ == "__main__":
@@ -158,6 +163,7 @@ if __name__ == "__main__":
         qk_nope_dim=qk_nope_dim,
         v_dim=v_dim,
     )
+
     tf = transformer_flops(
         vocab_size=vocab_size,
         maxlen=maxlen,
@@ -170,8 +176,21 @@ if __name__ == "__main__":
         qk_nope_dim=qk_nope_dim,
         v_dim=v_dim,
     )
+
     pf = palm_flops(tp, n_layers, num_heads, qk_rope_dim, qk_nope_dim, maxlen)
     print(f"params: {tp}")
     print(f"flops: {tf}")
     print(f"palm flops: {pf}")
-    print(f"ratio: {pf / tf}")
+    print(f"ratio: {pf / tf:.2f}")
+
+    batch_size = 16 * 32 * 2
+    dt = 10
+    flops_per_token = tf * batch_size / dt
+    promissed_flops = 65e12 * 2
+    mfu = flops_per_token / promissed_flops
+    print(f"mfu: {mfu * 100:.2f}%")
+
+    needed_flops = 6 * tp * 67 * 1e8
+    throughput = promissed_flops * mfu
+    time_needed = needed_flops / throughput
+    print(f"time needed: {time_needed / 60 / 60 / 24:.2f} days")
