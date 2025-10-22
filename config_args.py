@@ -22,6 +22,20 @@ def tokenize_args(train_tokenizer=False):
     return args
 
 
+def sft_args():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--sft_dataset_path_huggingface", type=str, default="HuggingFaceTB/smoltalk"
+    )
+    parser.add_argument("--sft_dataset_sub_set", type=str, default="all")
+    parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
+    parser.add_argument("--data_file_name", type=str, default="sft_data")
+    parser.add_argument("--encoded_dataset_shard_size", type=int, default=int(1e8))
+    parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
+    args = parser.parse_args()
+    return args
+
+
 def generate_args():
     parser = ArgumentParser()
     parser.add_argument("--input_text", type=str)
