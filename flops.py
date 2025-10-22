@@ -10,9 +10,9 @@ def mla_attention_flops(
 ):
     qk_head_dim = qk_rope_dim + qk_nope_dim
     # pre-attention
-    query_linear = 2 * maxlen * embedding_dim * qk_nope_dim
+    query_linear = 2 * maxlen * embedding_dim * (qk_head_dim * num_heads)
     compressed_kv_linear = 2 * maxlen * embedding_dim * (kv_rank + qk_rope_dim)
-    dcompressed_kv_linear = 2 * maxlen * kv_rank * (qk_nope_dim + v_dim)
+    dcompressed_kv_linear = 2 * maxlen * kv_rank * (num_heads * (qk_nope_dim + v_dim))
     # actual attention
     atten = 2 * num_heads * (maxlen * qk_head_dim * maxlen)
     output = 2 * num_heads * (maxlen * maxlen * v_dim)
