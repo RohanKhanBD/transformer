@@ -75,8 +75,8 @@ def transformer_flops(
 
 
 # Fake it till you make it flops
-def palm_flops(N, n_layers, n_heads, qk_rope_dim, qk_nope_dim, maxlen):
-    L, H, Q, T = n_layers, n_heads, qk_rope_dim + qk_nope_dim, maxlen
+def palm_flops(N, n_layers, num_heads, qk_rope_dim, qk_nope_dim, maxlen):
+    L, H, Q, T = n_layers, num_heads, qk_rope_dim + qk_nope_dim, maxlen
     mf_per_token = 6 * N + 12 * L * H * Q * T
     mf = mf_per_token * maxlen
     return mf
