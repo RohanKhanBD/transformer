@@ -22,7 +22,7 @@ if __name__ == "__main__":
     if load_mistral_tokenizer:
         tok.load_mistral_tokenizer(tokenizer_file_name)
     else:
-        tok.load_mistral_tokenizer(tokenizer_file_name)
+        tok.load(tokenizer_file_name)
 
     sft_dataset = datasets.load_dataset(
         sft_dataset_path_huggingface, sft_dataset_sub_set, split="train", streaming=True
