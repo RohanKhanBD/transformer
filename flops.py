@@ -100,7 +100,7 @@ def mla_params(
 
 
 def ffn_params(embedding_dim: int, inter_dim: int):
-    return 2 * embedding_dim * inter_dim
+    return 3 * embedding_dim * inter_dim
 
 
 def block_params(
