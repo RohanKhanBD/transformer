@@ -100,7 +100,7 @@ def main():
 
     ## model flops
     flops_per_token = transformer_flops(
-        vocab_size=tok.vocab,
+        vocab_size=tok.vocab_size,
         maxlen=model_conf.maxlen,
         embedding_dim=model_conf.embedding_dim,
         inter_dim=model_conf.inter_dim,
