@@ -15,6 +15,7 @@ from model import TransformerLM
 from utils import TextDataset, AttentionMask, load, save, est_loss, get_lr, set_seed
 
 from config_args import train_args
+from flops import transformer_flops
 
 
 def print_master(inp, master):
@@ -43,6 +44,7 @@ def main():
     tokenizer_file_name = file_args.tokenizer_file_name
     use_autocast = file_args.use_autocast
     load_mistral_tokenizer = file_args.load_mistral_tokenizer
+    promissed_flops = file_args.promissed_flops
     dtype = file_args.dtype
     dtype = {"bf16": torch.bfloat16, "f16": torch.float16}[dtype]
 
@@ -95,6 +97,21 @@ def main():
         flash=is_cuda,
         atten_types=[AttentionMask.Local],
     )
+
+    ## model flops
+    flops_per_token = transformer_flops(
+        vocab_size=tok.vocab,
+        maxlen=model_conf.maxlen,
+        embedding_dim=model_conf.embedding_dim,
+        inter_dim=model_conf.inter_dim,
+        num_heads=model_conf.num_heads,
+        n_layers=model_conf.n_layers,
+        qk_rope_dim=model_conf.qk_rope_dim,
+        qk_nope_dim=model_conf.qk_nope_dim,
+        kv_rank=model_conf.kv_lora_rank,
+        v_dim=model_conf.v_dim,
+    )
+
     assert total_batch_size % (batch_size * model_conf.maxlen * world_size) == 0, (
         "total_batch_size has divisible by batch_size * maxlen * world_size"
     )
@@ -110,8 +127,9 @@ def main():
     else:
         raw_model = model
 
+    model_params = raw_model.total_num_of_params()
     print_master(model, master_process)
-    print_master(raw_model.total_num_of_params(), master_process)
+    print_master(model_params, master_process)
     print_master(f"Number of devices:{world_size}", master_process)
     # optimizer
     optim = raw_model.get_optimizer(lr, weight_decay, betas, fused=is_cuda)
@@ -242,8 +260,10 @@ def main():
         dt = t1 - t0
         t0 = t1
         tok_per_sec = (batch_size * model_conf.maxlen * grad_ecum * world_size) / dt
+        flops_achived = flops_per_token * (batch_size * grad_ecum * world_size) / dt
+        mfu = (flops_achived / promissed_flops) * 100
         print_master(
-            f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f}",
+            f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%",
             master_process,
         )
         if master_process:

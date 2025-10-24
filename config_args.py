@@ -61,6 +61,7 @@ def train_args():
     parser.add_argument("--total_batch_size", type=int, default=2**19)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=1337)
+    parser.add_argument("--promissed_flops", type=int, default=312e12)
     parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--min_lr", type=float, default=3e-3 * 0.1)
     parser.add_argument("--weight_decay", type=float, default=0.1)
