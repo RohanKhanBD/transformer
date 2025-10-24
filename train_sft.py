@@ -64,8 +64,6 @@ def main():
         master_process = True
         if is_cuda:
             torch.cuda.set_device(device)
-        else:
-            torch.cpu.set_device(device)
 
     # loading tokenizer for the vocab_size
     tok = Tokenizer()
@@ -123,16 +121,16 @@ def main():
 
     # datasets
     train_dataset = TextDataset(data_file_name, model_conf.maxlen, "train")
-    val_datset = TextDataset(data_file_name, model_conf.maxlen, "val")
+    val_dataset = TextDataset(data_file_name, model_conf.maxlen, "val")
 
     # sampler
     if ddp:
         train_sampler = DistributedSampler(train_dataset, shuffle=False)
-        val_sampler = DistributedSampler(val_datset, shuffle=False)
+        val_sampler = DistributedSampler(val_dataset, shuffle=False)
 
     # dataloader
     train_data = DataLoader(train_dataset, shuffle=False, sampler=train_sampler)
-    val_data = DataLoader(val_datset, shuffle=False, sampler=val_sampler)
+    val_data = DataLoader(val_dataset, shuffle=False, sampler=val_sampler)
 
     # amp scaler
     use_scaler = use_autocast and (dtype == torch.float16)
@@ -148,7 +146,7 @@ def main():
     for i in range(1, steps + 1):
         ploss = 0.0
         n_lr = get_lr(i, steps, lr, min_lr, warm_up)
-        for param_group in optim.param_groups():
+        for param_group in optim.param_groups:
             param_group["lr"] = n_lr
 
         # Eval
@@ -171,8 +169,6 @@ def main():
         # sync after eval
         if is_cuda:
             torch.cuda.synchronize()
-        else:
-            torch.cpu.synchronize()
 
         # Train
         for grad_i in range(grad_accum):
@@ -216,8 +212,6 @@ def main():
         # sync after train
         if is_cuda:
             torch.cuda.synchronize()
-        else:
-            torch.cpu.synchronize()
 
         t1 = time()
         dt = t1 - t0

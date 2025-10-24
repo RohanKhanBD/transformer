@@ -81,8 +81,6 @@ def main():
         master_process = True
         if is_cuda:
             torch.cuda.set_device(device)
-        else:
-            torch.cpu.set_device(device)
 
     # model init
     set_seed(seed + rank)
@@ -213,8 +211,6 @@ def main():
             print_master(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
         if is_cuda:
             torch.cuda.synchronize()
-        else:
-            torch.cpu.synchronize()
         # ------- Train -------
         for grad_i in range(grad_ecum):
             no_sync_enable = grad_i < grad_ecum - 1
@@ -255,8 +251,6 @@ def main():
 
         if is_cuda:
             torch.cuda.synchronize()
-        else:
-            torch.cpu.synchronize()
 
         t1 = time()
         dt = t1 - t0
