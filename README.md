@@ -8,10 +8,11 @@ A simple yet powerful Transformer LLM implementation built with PyTorch.
 
 ### What This Code Does
 - 🔤 **Train BPE tokenizer from scratch** - Build your own vocabulary
-- 📥 **Load Mistral tokenizer** - Use pre-trained Mistral BPE tokenizer
+- 🔥 **Load Mistral tokenizer** - Use pre-trained Mistral BPE tokenizer
 - 📊 **Dataset tokenization** - Process data with pre-trained BPE tokenizer  
 - 🧠 **Transformer training** - Train models from the ground up
 - 💬 **Text generation** - Generate text from pre-trained models
+- 🎓 **Supervised Fine-Tuning (SFT)** - Fine-tune models on instruction/chat datasets
 - 🔀 **Mixture-of-Experts** - Efficient scaling with MoE architecture
 - 🎯 **Multi-Head Latent Attention** - Advanced attention mechanism from DeepSeek
 - 🖥️ **Multi-GPU training** - Distributed training with PyTorch DDP
@@ -73,7 +74,9 @@ python train_tokenizer.py
 
 ## 📊 Training Pipeline
 
-### 1️⃣ Tokenize Your Dataset  
+### Pre-training Workflow
+
+#### 1️⃣ Tokenize Your Dataset  
 ```bash
 # With custom tokenizer
 python tokenize_data.py
@@ -97,7 +100,7 @@ python tokenize_data.py --load_mistral_tokenizer=True
 
 > **⚠️ Note:** The pre-tokenized dataset above only works with the custom tokenizer, not with `--load_mistral_tokenizer`.
 
-### 2️⃣ Train the Model
+#### 2️⃣ Train the Model
 ```bash
 # With custom tokenizer
 python train.py
@@ -130,7 +133,7 @@ python train.py --load_mistral_tokenizer=True
 | `--compile_model`          |
 | `--load_mistral_tokenizer` |
 
-### 3️⃣ Generate Text
+#### 3️⃣ Generate Text
 ```bash
 # With custom tokenizer
 python generate.py --input_text "Hello" --num_tokens_to_generate 20
@@ -161,13 +164,93 @@ python generate.py --input_text "Once upon a time" --num_tokens_to_generate 50 -
 
 ---
 
+## 🎓 Supervised Fine-Tuning (SFT)
+
+Fine-tune your pre-trained model on instruction/chat datasets to make it follow instructions and have conversations.
+
+### When to Use SFT
+
+SFT is perfect for:
+- 💬 Creating chatbots and conversational AI
+- 📝 Instruction-following models
+- 🎯 Task-specific fine-tuning
+- 🔄 Adapting pre-trained models to specific domains
+
+### SFT Workflow
+
+#### 1️⃣ Prepare SFT Dataset
+```bash
+# With custom tokenizer
+python tokenize_sft_data.py
+
+# OR with Mistral tokenizer
+python tokenize_sft_data.py --load_mistral_tokenizer=True
+```
+
+**SFT Data Tokenization Options:**
+
+| Parameter                        |
+| -------------------------------- |
+| `--sft_dataset_path_huggingface` |
+| `--sft_dataset_sub_set`          |
+| `--tokenizer_file_name`          |
+| `--data_file_name`               |
+| `--encoded_dataset_shard_size`   |
+| `--load_mistral_tokenizer`       |
+
+#### 2️⃣ Fine-tune the Model
+```bash
+# With custom tokenizer
+python train_sft.py
+
+# OR with Mistral tokenizer (recommended)
+python train_sft.py --load_mistral_tokenizer=True
+```
+
+**SFT Training Options:**
+
+| Parameter                  |
+| -------------------------- |
+| `--steps`                  |
+| `--eval_rate`              |
+| `--eval_steps`             |
+| `--save_rate`              |
+| `--warm_up`                |
+| `--total_batch_size`       |
+| `--batch_size`             |
+| `--promissed_flops`        |
+| `--lr`                     |
+| `--min_lr`                 |
+| `--weight_decay`           |
+| `--beta1`                  |
+| `--beta2`                  |
+| `--backend`                |
+| `--save_file_name`         |
+| `--data_file_name`         |
+| `--tokenizer_file_name`    |
+| `--dtype`                  |
+| `--compile_model`          |
+| `--use_autocast`           |
+| `--load_mistral_tokenizer` |
+
+#### 3️⃣ Test Your Fine-tuned Model
+```bash
+# With custom tokenizer
+python generate.py --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst
+
+# OR with Mistral tokenizer
+python generate.py --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst --load_mistral_tokenizer=True
+```
+
+---
+
 ## ⚠️ Important Notes
 
 ### Tokenizer Consistency
-**Critical:** You must use the same tokenizer for training and generation that was used for data tokenization. 
+**Critical:** You must use the same tokenizer throughout your entire pipeline:
 
-- ✅ If you tokenized data with `--load_mistral_tokenizer`, use it for training and generation
-- ✅ If you tokenized data with your custom tokenizer, don't use `--load_mistral_tokenizer` flag
+- ✅ If you used `--load_mistral_tokenizer=True` for pre-training data, use it for SFT and generation
+- ✅ If you used your custom tokenizer for pre-training, use it for SFT and generation
 - ❌ Mixing tokenizers will cause errors or produce gibberish output
 
 ### Which Tokenizer Should I Use?
@@ -177,13 +260,12 @@ python generate.py --input_text "Once upon a time" --num_tokens_to_generate 50 -
 | 🚀 Most users            | **Mistral tokenizer** (recommended)     |
 | ⚡ Quick experimentation | **Mistral tokenizer**                   |
 | 🏭 Production use        | **Mistral tokenizer**                   |
+| 🎓 SFT/Chat models       | **Mistral tokenizer**                   |
 | 🔬 Research & learning   | Custom tokenizer                        |
 | 🌍 Non-English languages | Custom tokenizer trained on your data   |
 | 📚 Domain-specific text  | Custom tokenizer trained on domain data |
 
----
-
-## 🏗️ Architecture Highlights
+## 🗺️ Architecture Highlights
 
 - **🔥 DeepSeek Multi-Head Latent Attention** - Enhanced attention mechanism
 - **⚖️ Mixture-of-Experts** - Scalable expert routing
@@ -192,33 +274,25 @@ python generate.py --input_text "Once upon a time" --num_tokens_to_generate 50 -
 
 ---
 
-## 📝 Example Workflows
+## 🤝 Contributing
 
-### Workflow 1: Using Mistral Tokenizer (Fastest)
-```bash
-# Step 1: Tokenize data
-python tokenize_data.py --load_mistral_tokenizer=True
-
-# Step 2: Train model
-python train.py --load_mistral_tokenizer=True --steps 10000
-
-# Step 3: Generate text
-python generate.py --input_text "Hello world" --load_mistral_tokenizer=True
-```
-
-### Workflow 2: Using Custom Tokenizer (Most Flexible)
-```bash
-# Step 1: Train tokenizer
-python train_tokenizer.py
-
-# Step 2: Tokenize data
-python tokenize_data.py
-
-# Step 3: Train model
-python train.py --steps 10000
-
-# Step 4: Generate text
-python generate.py --input_text "Hello world"
-```
+Contributions are welcome! Feel free to:
+- 🐛 Report bugs
+- 💡 Suggest features
+- 🔧 Submit pull requests
+- 📖 Improve documentation
 
 ---
+
+## 📄 License
+
+GNU Affero General Public License.
+
+---
+
+## 🙏 Acknowledgments
+
+- Mistral AI for the tokenizer
+- HuggingFace for datasets and tools
+- DeepSeek for Multi-Head Latent Attention
+- PyTorch team for the framework
