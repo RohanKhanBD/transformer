@@ -61,6 +61,7 @@ python train_tokenizer.py
 | ------------------------------ |
 | `--dataset_path_huggingface`   |
 | `--dataset_sub_set`            |
+| `--tokenizer_file_name`        |
 | `--tokenizer_train_shard_size` |
 | `--trust_remote_code`          |
 
@@ -91,6 +92,7 @@ python tokenize_data.py --load_mistral_tokenizer=True
 | ------------------------------ |
 | `--dataset_path_huggingface`   |
 | `--dataset_sub_set`            |
+| `--tokenizer_file_name`        |
 | `--data_file_name`             |
 | `--encoded_dataset_shard_size` |
 | `--load_mistral_tokenizer`     |
@@ -121,6 +123,7 @@ python train.py --load_mistral_tokenizer=True
 | `--total_batch_size`       |
 | `--batch_size`             |
 | `--seed`                   |
+| `--promissed_flops`        |
 | `--lr`                     |
 | `--min_lr`                 |
 | `--weight_decay`           |
@@ -129,8 +132,10 @@ python train.py --load_mistral_tokenizer=True
 | `--backend`                |
 | `--save_file_name`         |
 | `--data_file_name`         |
+| `--tokenizer_file_name`    |
 | `--dtype`                  |
 | `--compile_model`          |
+| `--use_autocast`           |
 | `--load_mistral_tokenizer` |
 
 #### 3️⃣ Generate Text
