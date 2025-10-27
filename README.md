@@ -156,6 +156,9 @@ python generate.py --input_text "Hello" --num_tokens_to_generate 20 --load_mistr
 | `--temperature`            |
 | `--top_p`                  |
 | `--save_file_name`         |
+| `--backend`                |
+| `--tokenizer_file_name`    |
+| `--compile_model`          |
 | `--load_mistral_tokenizer` |
 
 **Examples:**
