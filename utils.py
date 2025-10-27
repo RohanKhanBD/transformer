@@ -133,6 +133,11 @@ def top_p(probs: torch.Tensor, p: float):
     return next_token
 
 
+def print_master(inp):
+    if int(os.environ.get("RANK", -1)) != -1:
+        print(inp)
+
+
 class AttentionMask(Enum):
     Local = 1
     Global = 2

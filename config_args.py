@@ -22,6 +22,20 @@ def tokenize_args(train_tokenizer=False):
     return args
 
 
+def sft_args():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--sft_dataset_path_huggingface", type=str, default="HuggingFaceTB/smoltalk"
+    )
+    parser.add_argument("--sft_dataset_sub_set", type=str, default="all")
+    parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
+    parser.add_argument("--data_file_name", type=str, default="sft_data")
+    parser.add_argument("--encoded_dataset_shard_size", type=int, default=int(1e8))
+    parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
+    args = parser.parse_args()
+    return args
+
+
 def generate_args():
     parser = ArgumentParser()
     parser.add_argument("--input_text", type=str)
@@ -47,6 +61,7 @@ def train_args():
     parser.add_argument("--total_batch_size", type=int, default=2**19)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=1337)
+    parser.add_argument("--promissed_flops", type=int, default=312e12)
     parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--min_lr", type=float, default=3e-3 * 0.1)
     parser.add_argument("--weight_decay", type=float, default=0.1)
@@ -55,6 +70,33 @@ def train_args():
     parser.add_argument("--backend", type=str, default="inductor")
     parser.add_argument("--save_file_name", type=str, default="lilgpt")
     parser.add_argument("--data_file_name", type=str, default="encoded_data")
+    parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
+    parser.add_argument("--dtype", type=str, default="bf16")
+    parser.add_argument("--compile_model", type=bool, default=True)
+    parser.add_argument("--use_autocast", type=bool, default=True)
+    parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
+    args = parser.parse_args()
+    return args
+
+
+def sft_train_args():
+    parser = ArgumentParser()
+    parser.add_argument("--steps", type=int, default=1525)
+    parser.add_argument("--eval_rate", type=int, default=50)
+    parser.add_argument("--eval_steps", type=int, default=100)
+    parser.add_argument("--save_rate", type=int, default=100)
+    parser.add_argument("--warm_up", type=int, default=715)
+    parser.add_argument("--total_batch_size", type=int, default=2**19)
+    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--promissed_flops", type=int, default=312e12)
+    parser.add_argument("--lr", type=float, default=3e-3)
+    parser.add_argument("--min_lr", type=float, default=3e-3 * 0.1)
+    parser.add_argument("--weight_decay", type=float, default=0.1)
+    parser.add_argument("--beta1", type=float, default=0.9)
+    parser.add_argument("--beta2", type=float, default=0.97)
+    parser.add_argument("--backend", type=str, default="inductor")
+    parser.add_argument("--save_file_name", type=str, default="lilgpt")
+    parser.add_argument("--data_file_name", type=str, default="sft_data")
     parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--dtype", type=str, default="bf16")
     parser.add_argument("--compile_model", type=bool, default=True)
