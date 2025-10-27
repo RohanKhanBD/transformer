@@ -134,7 +134,7 @@ def top_p(probs: torch.Tensor, p: float):
 
 
 def print_master(inp):
-    if int(os.environ.get("RANK", -1)) != -1:
+    if int(os.environ.get("RANK", 0)) == 0:
         print(inp)
 
 
