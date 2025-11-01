@@ -35,16 +35,14 @@ class TextDataset(torch.utils.data.Dataset):
         self.total_len = offset
 
     def __getitem__(self, idx):
-        offset = self.shard_offset[self.shard_i]
         idx = idx * self.maxlen
         idx = idx % self.total_len
-        local_idx = idx - offset
-        if idx > offset + self.shard_len[self.shard_i]:
+        if idx > self.shard_offset[self.shard_i] + self.shard_len[self.shard_i]:
             self.shard_i = (self.shard_i + 1) % len(self.shards)
             self.data = load(self.shard_file, self.shards[self.shard_i], False)
             print_master(f"global idx:{idx}")
             print_master(f"shard idx:{self.shard_i}")
-            print_master(f"idx in shard: {local_idx}")
+        local_idx = idx - self.shard_offset[self.shard_i]
         tokens = self.data[local_idx : local_idx + self.maxlen + 1]
         if not isinstance(tokens, torch.Tensor):
             tokens = torch.tensor(tokens, dtype=torch.long)
