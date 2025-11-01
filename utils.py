@@ -23,20 +23,31 @@ class TextDataset(torch.utils.data.Dataset):
 
         self.maxlen = maxlen
 
+        self.shard_len = []
+        self.shard_offset = []
+        offset = 0
+        for i in shards:
+            data = load(shard_file, i, False)
+            s_len = len(data) - maxlen
+            self.shard_len.append(s_len)
+            self.shard_offset.append(offset)
+            offset += s_len
+        self.total_len = offset
+
     def __getitem__(self, idx):
-        start_idx = idx * self.maxlen
-        end_idx = start_idx + self.maxlen
-        if end_idx + 1 > len(self.data):
-            print("end of data")
-            print(f"current pos:{idx}")
-            self.shard_i = (self.shard_i + 1) % len(self.shards)
-            print(f"current shard:{self.shard_i}")
-            print(f"shards left:{len(self.shards) - self.shard_i}")
-            self.data = load(self.shard_file, self.shards[self.shard_i], False).astype(
-                "int32"
-            )
-            raise StopIteration
-        tokens = self.data[start_idx : end_idx + 1]
+        idx = idx * self.maxlen
+        idx = idx % self.total_len
+        for i, offset in enumerate(self.shard_offset):
+            if idx > offset + self.shard_len[i]:
+                self.shard_i = i
+                self.data = load(self.shard_file, self.shards[self.shard_i], False)
+                local_idx = idx - offset
+                print_master(f"global idx:{idx}")
+                print_master(f"shard idx:{self.shard_i}")
+                print_master(f"idx in shard: {local_idx}")
+            elif idx < offset + self.shard_len[i]:
+                break
+        tokens = self.data[local_idx : local_idx + self.maxlen + 1]
         if not isinstance(tokens, torch.Tensor):
             tokens = torch.tensor(tokens, dtype=torch.long)
         x = tokens[:-1]
@@ -44,7 +55,7 @@ class TextDataset(torch.utils.data.Dataset):
         return x, y
 
     def __len__(self):
-        return len(self.data) - self.maxlen
+        return self.total_len
 
 
 @torch.no_grad()

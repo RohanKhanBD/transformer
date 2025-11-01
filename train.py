@@ -233,11 +233,7 @@ def main():
                     _, loss = model.forward(x, y)
                 loss = loss / grad_ecum
                 scaler.scale(loss).backward()
-            try:
-                x, y = next(train_data_iter)
-            except StopIteration:
-                train_data_iter = iter(train_data)
-                x, y = next(train_data_iter)
+            x, y = next(train_data_iter)
             x, y = x.to(device), y.to(device)
             ploss += loss.detach()
         if ddp:
