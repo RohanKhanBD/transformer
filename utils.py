@@ -38,10 +38,10 @@ class TextDataset(torch.utils.data.Dataset):
         idx = idx * self.maxlen
         idx = idx % self.total_len
         for i, offset in enumerate(self.shard_offset):
+            local_idx = idx - offset
             if idx > offset + self.shard_len[i]:
                 self.shard_i = i
                 self.data = load(self.shard_file, self.shards[self.shard_i], False)
-                local_idx = idx - offset
                 print_master(f"global idx:{idx}")
                 print_master(f"shard idx:{self.shard_i}")
                 print_master(f"idx in shard: {local_idx}")
