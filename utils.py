@@ -28,7 +28,7 @@ class TextDataset(torch.utils.data.Dataset):
         offset = 0
         for i in shards:
             data = load(shard_file, i, False)
-            s_len = len(data) - maxlen
+            s_len = len(data)
             self.shard_len.append(s_len)
             self.shard_offset.append(offset)
             offset += s_len
