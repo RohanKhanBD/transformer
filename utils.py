@@ -83,11 +83,7 @@ def est_loss(
     model.eval()
     losses = torch.zeros(eval_steps, device=device)
     for i in range(eval_steps):
-        try:
-            x, y = next(val_iter)
-        except StopIteration:
-            val_iter = iter(val_dataloader)
-            x, y = next(val_iter)
+        x, y = next(val_iter)
         x, y = x.to(device), y.to(device)
         with torch.autocast(
             device_type=device_type,
