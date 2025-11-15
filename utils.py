@@ -57,7 +57,7 @@ class TextDatasetIter:
         end = start + self.maxlen
 
         token = self.data[start : end + 1]
-        if isinstance(token, torch.Tensor):
+        if not isinstance(token, torch.Tensor):
             token = torch.tensor(token, dtype=torch.long)
 
         x = token[:-1]
