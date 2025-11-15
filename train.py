@@ -137,8 +137,12 @@ def main():
     optim = raw_model.get_optimizer(lr, weight_decay, betas, fused=is_cuda)
 
     # dataset
-    train_dataset = TextDataset(data_file_name, model_conf.maxlen, "train")
-    val_dataset = TextDataset(data_file_name, model_conf.maxlen, "val")
+    train_dataset = TextDataset(
+        data_file_name, model_conf.maxlen, "train", rank, world_size
+    )
+    val_dataset = TextDataset(
+        data_file_name, model_conf.maxlen, "val", rank, world_size
+    )
 
     # sampler
     if ddp:
@@ -156,6 +160,9 @@ def main():
         val_dataset, batch_size=batch_size, shuffle=False, sampler=val_sampler
     )
 
+    train_data_iter = iter(train_data)
+    val_data_iter = iter(val_data)
+
     try:
         checkpoint = load(save_file_name)
         data_state = load(save_file_name, "data_state_and_training_info.pt", False)
@@ -163,8 +170,8 @@ def main():
         train_i = data_state["step"]
         val_i = data_state["val_i"]
 
-        train_data = data_state["train_data"]
-        val_data = data_state["val_data"]
+        train_data_iter = data_state["train_data"]
+        val_data_iter = data_state["val_data"]
 
         model.load_state_dict(checkpoint["model"])
         optim.load_state_dict(checkpoint["optim"])
@@ -179,8 +186,6 @@ def main():
     use_scaler = use_autocast and (dtype == torch.float16)
     scaler = GradScaler(enabled=use_scaler)
 
-    train_data_iter = iter(train_data)
-    val_data_iter = iter(val_data)
     x, y = next(train_data_iter)
     x, y = x.to(device), y.to(device)
     t0 = time()
@@ -268,8 +273,8 @@ def main():
             checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
 
             data_state = {
-                "train_data": train_data,
-                "val_data": val_data,
+                "train_data": train_data_iter,
+                "val_data": val_data_iter,
                 "step": i + 1,
                 "val_i": val_i,
             }
