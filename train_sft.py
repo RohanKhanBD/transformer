@@ -120,8 +120,12 @@ def main():
     optim = raw_model.get_optimizer(lr, weight_decay, betas)
 
     # datasets
-    train_dataset = TextDataset(data_file_name, model_conf.maxlen, "train")
-    val_dataset = TextDataset(data_file_name, model_conf.maxlen, "val")
+    train_dataset = TextDataset(
+        data_file_name, model_conf.maxlen, "train", rank, world_size
+    )
+    val_dataset = TextDataset(
+        data_file_name, model_conf.maxlen, "val", rank, world_size
+    )
 
     # sampler
     if ddp:
@@ -132,12 +136,13 @@ def main():
     train_data = DataLoader(train_dataset, shuffle=False, sampler=train_sampler)
     val_data = DataLoader(val_dataset, shuffle=False, sampler=val_sampler)
 
+    train_data_iter = iter(train_data)
+    val_data_iter = iter(val_data)
+
     # amp scaler
     use_scaler = use_autocast and (dtype == torch.float16)
     scaler = GradScaler(enabled=use_scaler)
 
-    train_data_iter = iter(train_data)
-    val_data_iter = iter(val_data)
     x, y = next(train_data_iter)
     x, y = x.to(device), y.to(device)
     t0 = time()
