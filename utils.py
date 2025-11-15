@@ -73,7 +73,6 @@ class TextDatasetIter:
 @torch.no_grad()
 def est_loss(
     model: torch.nn.Module,
-    val_dataloader: torch.utils.data.DataLoader,
     val_iter,
     eval_steps: int,
     device: str,

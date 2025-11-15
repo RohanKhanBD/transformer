@@ -158,7 +158,6 @@ def main():
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(
                 model,
-                val_data,
                 val_data_iter,
                 eval_steps,
                 device,
