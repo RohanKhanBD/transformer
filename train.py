@@ -5,7 +5,7 @@ import torch.distributed as dist
 
 from torch import GradScaler
 from torch.utils.tensorboard import SummaryWriter
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from time import time
@@ -144,21 +144,9 @@ def main():
         data_file_name, model_conf.maxlen, "val", rank, world_size
     )
 
-    # sampler
-    if ddp:
-        train_sampler = DistributedSampler(train_dataset, shuffle=False)
-        val_sampler = DistributedSampler(val_dataset, shuffle=False)
-    else:
-        train_sampler = None
-        val_sampler = None
-
     # data loader
-    train_data = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=False, sampler=train_sampler
-    )
-    val_data = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, sampler=val_sampler
-    )
+    train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    val_data = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     train_data_iter = iter(train_data)
     val_data_iter = iter(val_data)
