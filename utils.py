@@ -5,53 +5,67 @@ from math import pi, cos
 from dataclasses import dataclass
 
 
-class TextDataset(torch.utils.data.Dataset):
+class TextDataset(torch.utils.data.IterableDataset):
     def __init__(
-        self,
-        shard_file: str,
-        maxlen: int,
-        shard: str,
+        self, shard_file: str, maxlen: int, shard: str, rank: int, word_size: int
     ):
+        super().__init__()
+        self.rank = rank
+        self.world_size = word_size
         self.shard_file = shard_file
 
         shards = os.listdir(shard_file)
         shards = sorted(shards)
         shards = [i for i in shards if shard in i]
         self.shards = shards
-        self.shard_i = 0
-        self.data = load(shard_file, self.shards[self.shard_i], False).astype("int32")
-
         self.maxlen = maxlen
 
-        self.shard_len = []
-        self.shard_offset = []
-        offset = 0
-        for i in shards:
-            data = load(shard_file, i, False)
-            s_len = len(data)
-            self.shard_len.append(s_len)
-            self.shard_offset.append(offset)
-            offset += s_len
-        self.total_len = offset
+    def __iter__(self):
+        return TextDatasetIter(
+            self.shard_file, self.shards, self.maxlen, self.rank, self.world_size
+        )
 
-    def __getitem__(self, idx):
-        idx = idx * self.maxlen
-        idx = idx % self.total_len
-        if idx > self.shard_offset[self.shard_i] + self.shard_len[self.shard_i]:
+
+class TextDatasetIter:
+    def __init__(
+        self,
+        shard_file: str,
+        shards: list[str],
+        maxlen: int,
+        rank: int,
+        world_size: int,
+    ):
+        self.rank = rank
+        self.world_size = world_size
+
+        self.shard_file = shard_file
+        self.shards = shards
+        self.shard_i = 0
+
+        self.maxlen = maxlen
+        self.data = load(
+            self.shard_file, self.shards[self.shard_i], weights_only=False
+        ).astype("int32")
+
+        self.idx = rank * maxlen
+
+    def __next__(self):
+        start = self.idx
+        end = start + self.maxlen
+
+        token = self.data[start : end + 1]
+        if isinstance(token, torch.Tensor):
+            token = torch.tensor(token)
+
+        x = token[:-1]
+        y = token[1:]
+
+        self.idx += self.maxlen * self.world_size
+        if self.idx + (self.maxlen * self.world_size + 1) > len(self.data):
+            self.idx = self.rank * self.maxlen
             self.shard_i = (self.shard_i + 1) % len(self.shards)
-            self.data = load(self.shard_file, self.shards[self.shard_i], False)
-            print_master(f"global idx:{idx}")
-            print_master(f"shard idx:{self.shard_i}")
-        local_idx = idx - self.shard_offset[self.shard_i]
-        tokens = self.data[local_idx : local_idx + self.maxlen + 1]
-        if not isinstance(tokens, torch.Tensor):
-            tokens = torch.tensor(tokens, dtype=torch.long)
-        x = tokens[:-1]
-        y = tokens[1:]
-        return x, y
 
-    def __len__(self):
-        return self.total_len
+        return x, y
 
 
 @torch.no_grad()
