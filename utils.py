@@ -49,13 +49,16 @@ class TextDatasetIter:
 
         self.idx = rank * maxlen
 
+    def __iter__(self):
+        return self
+
     def __next__(self):
         start = self.idx
         end = start + self.maxlen
 
         token = self.data[start : end + 1]
         if isinstance(token, torch.Tensor):
-            token = torch.tensor(token)
+            token = torch.tensor(token, dtype=torch.long)
 
         x = token[:-1]
         y = token[1:]
@@ -66,6 +69,9 @@ class TextDatasetIter:
             self.idx = self.rank * self.maxlen
             self.shard_i = (self.shard_i + 1) % len(self.shards)
             print_master(self.shard_i)
+            self.data = load(
+                self.shard_file, self.shards[self.shard_i], weights_only=False
+            ).astype("int32")
 
         return x, y
 
