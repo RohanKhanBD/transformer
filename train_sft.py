@@ -4,7 +4,7 @@ import torch
 import torch.distributed as dist
 
 from torch import GradScaler
-from torch.utils.data import DataLoader
+from torchdata.stateful_dataloader import StatefulDataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from time import time
@@ -128,8 +128,8 @@ def main():
     )
 
     # dataloader
-    train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
-    val_data = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    train_data = StatefulDataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    val_data = StatefulDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     train_data_iter = iter(train_data)
     val_data_iter = iter(val_data)
