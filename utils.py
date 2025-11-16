@@ -75,6 +75,22 @@ class TextDatasetIter:
 
         return x, y
 
+    def state_dict(self):
+        return {
+            "shard_file": self.shard_file,
+            "shards": self.shards,
+            "shard_i": self.shard_i,
+            "idx": self.idx,
+            "maxlen": self.maxlen,
+        }
+
+    def load_state_dict(self, state_dict: dict):
+        self.shard_file = state_dict["shard_file"]
+        self.shards = state_dict["shard"]
+        self.shard_i = state_dict["shard_i"]
+        self.idx = state_dict["idx"]
+        self.maxlen = state_dict["maxlen"]
+
 
 @torch.no_grad()
 def est_loss(
