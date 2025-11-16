@@ -86,10 +86,14 @@ class TextDatasetIter:
 
     def load_state_dict(self, state_dict: dict):
         self.shard_file = state_dict["shard_file"]
-        self.shards = state_dict["shard"]
+        self.shards = state_dict["shards"]
         self.shard_i = state_dict["shard_i"]
         self.idx = state_dict["idx"]
         self.maxlen = state_dict["maxlen"]
+
+        self.data = load(
+            self.shard_file, self.shards[self.shard_i], weights_only=False
+        ).astype("int32")
 
 
 @torch.no_grad()
