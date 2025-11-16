@@ -12,37 +12,16 @@ class TextDataset(torch.utils.data.IterableDataset):
         super().__init__()
         self.rank = rank
         self.world_size = word_size
-        self.shard_file = shard_file
 
+        self.shard_file = shard_file
         shards = os.listdir(shard_file)
         shards = sorted(shards)
         shards = [i for i in shards if shard in i]
         self.shards = shards
-        self.maxlen = maxlen
-
-    def __iter__(self):
-        return TextDatasetIter(
-            self.shard_file, self.shards, self.maxlen, self.rank, self.world_size
-        )
-
-
-class TextDatasetIter:
-    def __init__(
-        self,
-        shard_file: str,
-        shards: list[str],
-        maxlen: int,
-        rank: int,
-        world_size: int,
-    ):
-        self.rank = rank
-        self.world_size = world_size
-
-        self.shard_file = shard_file
-        self.shards = shards
         self.shard_i = 0
 
         self.maxlen = maxlen
+
         self.data = load(
             self.shard_file, self.shards[self.shard_i], weights_only=False
         ).astype("int32")
@@ -76,21 +55,11 @@ class TextDatasetIter:
         return x, y
 
     def state_dict(self):
-        return {
-            "shard_file": self.shard_file,
-            "shards": self.shards,
-            "shard_i": self.shard_i,
-            "idx": self.idx,
-            "maxlen": self.maxlen,
-        }
+        return {"shard_i": self.shard_i, "idx": self.idx}
 
     def load_state_dict(self, state_dict: dict):
-        self.shard_file = state_dict["shard_file"]
-        self.shards = state_dict["shards"]
         self.shard_i = state_dict["shard_i"]
         self.idx = state_dict["idx"]
-        self.maxlen = state_dict["maxlen"]
-
         self.data = load(
             self.shard_file, self.shards[self.shard_i], weights_only=False
         ).astype("int32")
