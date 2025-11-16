@@ -158,8 +158,8 @@ def main():
         train_i = data_state["step"]
         val_i = data_state["val_i"]
 
-        train_data_iter = data_state["train_data"]
-        val_data_iter = data_state["val_data"]
+        train_data_iter.load_state_dict(data_state["train_data"])
+        val_data_iter.load_state_dict(data_state["val_data"])
 
         model.load_state_dict(checkpoint["model"])
         optim.load_state_dict(checkpoint["optim"])
@@ -260,8 +260,8 @@ def main():
             checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
 
             data_state = {
-                "train_data": train_data_iter,
-                "val_data": val_data_iter,
+                "train_data": train_data_iter.state_dict(),
+                "val_data": val_data_iter.state_dict(),
                 "step": i + 1,
                 "val_i": val_i,
             }
