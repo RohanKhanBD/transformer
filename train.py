@@ -259,10 +259,6 @@ def main():
             print_master("saving checkpoint...")
             checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
 
-            dataset_state = {
-                "train_data": train_data.state_dict(),
-                "val_data": val_data.state_dict(),
-            }
             data_state = {
                 "step": i + 1,
                 "val_i": val_i,
@@ -272,6 +268,14 @@ def main():
             save(data_state, save_file_name, "training_info.pt")
             save(dataset_state, save_file_name, f"dataset_info_rank{rank}.pt")
             print_master("saved checkpoint")
+        if i % save_rate == 0 or i == steps:
+            print(f"rank:{rank} saving dataset state dicts...")
+            dataset_state = {
+                "train_data": train_data.state_dict(),
+                "val_data": val_data.state_dict(),
+            }
+            save(dataset_state, save_file_name, f"dataset_info_rank{rank}.pt")
+            print(f"rank:{rank} saved dataset state dicts")
     if ddp:
         dist.destroy_process_group()
 
