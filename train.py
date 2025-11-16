@@ -158,8 +158,11 @@ def main():
         train_i = data_state["step"]
         val_i = data_state["val_i"]
 
-        train_data_iter.load_state_dict(data_state["train_data"])
-        val_data_iter.load_state_dict(data_state["val_data"])
+        train_data_iter_gather = data_state["train_data"]
+        val_data_iter_gather = data_state["val_data"]
+
+        train_data_iter.load_state_dict(train_data_iter_gather[rank])
+        val_data_iter.load_state_dict(val_data_iter_gather[rank])
 
         model.load_state_dict(checkpoint["model"])
         optim.load_state_dict(checkpoint["optim"])
@@ -259,9 +262,20 @@ def main():
             print_master("saving checkpoint...")
             checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
 
+            train_data_iter_gather = [None for _ in range(world_size)]
+            val_data_iter_gather = [None for _ in range(world_size)]
+            if ddp:
+                dist.all_gather_object(
+                    train_data_iter_gather, train_data_iter.state_dict()
+                )
+                dist.all_gather_object(val_data_iter_gather, val_data_iter.state_dict())
+            else:
+                train_data_iter_gather[0] = train_data_iter.state_dict()
+                val_data_iter_gather[0] = val_data_iter.state_dict()
+
             data_state = {
-                "train_data": train_data_iter.state_dict(),
-                "val_data": val_data_iter.state_dict(),
+                "train_data": train_data_iter_gather,
+                "val_data": val_data_iter_gather,
                 "step": i + 1,
                 "val_i": val_i,
             }
