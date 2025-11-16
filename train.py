@@ -5,7 +5,7 @@ import torch.distributed as dist
 
 from torch import GradScaler
 from torch.utils.tensorboard import SummaryWriter
-from torch.utils.data import DataLoader
+from torchdata.stateful_dataloader import StatefulDataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from time import time
@@ -145,11 +145,8 @@ def main():
     )
 
     # data loader
-    train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
-    val_data = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-
-    train_data_iter = iter(train_data)
-    val_data_iter = iter(val_data)
+    train_data = StatefulDataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    val_data = StatefulDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     try:
         checkpoint = load(save_file_name)
@@ -158,11 +155,11 @@ def main():
         train_i = data_state["step"]
         val_i = data_state["val_i"]
 
-        train_data_iter_gather = data_state["train_data"]
-        val_data_iter_gather = data_state["val_data"]
+        train_data_gather = data_state["train_data"]
+        val_data_gather = data_state["val_data"]
 
-        train_data_iter.load_state_dict(train_data_iter_gather[rank])
-        val_data_iter.load_state_dict(val_data_iter_gather[rank])
+        train_data.load_state_dict(train_data_gather[rank])
+        val_data.load_state_dict(val_data_gather[rank])
 
         model.load_state_dict(checkpoint["model"])
         optim.load_state_dict(checkpoint["optim"])
@@ -177,6 +174,8 @@ def main():
     use_scaler = use_autocast and (dtype == torch.float16)
     scaler = GradScaler(enabled=use_scaler)
 
+    train_data_iter = iter(train_data)
+    val_data_iter = iter(val_data)
     x, y = next(train_data_iter)
     x, y = x.to(device), y.to(device)
     t0 = time()
@@ -262,20 +261,18 @@ def main():
             print_master("saving checkpoint...")
             checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
 
-            train_data_iter_gather = [None for _ in range(world_size)]
-            val_data_iter_gather = [None for _ in range(world_size)]
+            train_data_gather = [None for _ in range(world_size)]
+            val_data_gather = [None for _ in range(world_size)]
             if ddp:
-                dist.all_gather_object(
-                    train_data_iter_gather, train_data_iter.state_dict()
-                )
-                dist.all_gather_object(val_data_iter_gather, val_data_iter.state_dict())
+                dist.all_gather_object(train_data_gather, train_data.state_dict())
+                dist.all_gather_object(val_data_gather, val_data.state_dict())
             else:
-                train_data_iter_gather[0] = train_data_iter.state_dict()
-                val_data_iter_gather[0] = val_data_iter.state_dict()
+                train_data_gather[0] = train_data_iter.state_dict()
+                val_data_gather[0] = val_data_iter.state_dict()
 
             data_state = {
-                "train_data": train_data_iter_gather,
-                "val_data": val_data_iter_gather,
+                "train_data": train_data_gather,
+                "val_data": val_data_gather,
                 "step": i + 1,
                 "val_i": val_i,
             }
