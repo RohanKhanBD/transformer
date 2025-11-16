@@ -266,7 +266,6 @@ def main():
             save(checkpoint, save_file_name)
             save(model_conf, save_file_name, "model_config.pt")
             save(data_state, save_file_name, "training_info.pt")
-            save(dataset_state, save_file_name, f"dataset_info_rank{rank}.pt")
             print_master("saved checkpoint")
         if i % save_rate == 0 or i == steps:
             print(f"rank:{rank} saving dataset state dicts...")
