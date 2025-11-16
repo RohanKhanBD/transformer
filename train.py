@@ -150,16 +150,14 @@ def main():
 
     try:
         checkpoint = load(save_file_name)
-        data_state = load(save_file_name, "data_state_and_training_info.pt", False)
+        data_state = load(save_file_name, "training_info.pt", False)
+        dataset_state = load(save_file_name, f"dataset_info_rank{rank}.pt", False)
         print_master(data_state)
         train_i = data_state["step"]
         val_i = data_state["val_i"]
 
-        train_data_gather = data_state["train_data"]
-        val_data_gather = data_state["val_data"]
-
-        train_data.load_state_dict(train_data_gather[rank])
-        val_data.load_state_dict(val_data_gather[rank])
+        train_data.load_state_dict(dataset_state["train_data"])
+        val_data.load_state_dict(dataset_state["val_data"])
 
         model.load_state_dict(checkpoint["model"])
         optim.load_state_dict(checkpoint["optim"])
@@ -261,24 +259,18 @@ def main():
             print_master("saving checkpoint...")
             checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
 
-            train_data_gather = [None for _ in range(world_size)]
-            val_data_gather = [None for _ in range(world_size)]
-            if ddp:
-                dist.all_gather_object(train_data_gather, train_data.state_dict())
-                dist.all_gather_object(val_data_gather, val_data.state_dict())
-            else:
-                train_data_gather[0] = train_data.state_dict()
-                val_data_gather[0] = val_data.state_dict()
-
+            dataset_state = {
+                "train_data": train_data.state_dict(),
+                "val_data": val_data.state_dict(),
+            }
             data_state = {
-                "train_data": train_data_gather,
-                "val_data": val_data_gather,
                 "step": i + 1,
                 "val_i": val_i,
             }
             save(checkpoint, save_file_name)
             save(model_conf, save_file_name, "model_config.pt")
-            save(data_state, save_file_name, "data_state_and_training_info.pt")
+            save(data_state, save_file_name, "training_info.pt")
+            save(dataset_state, save_file_name, f"dataset_info_rank{rank}.pt")
             print_master("saved checkpoint")
     if ddp:
         dist.destroy_process_group()
