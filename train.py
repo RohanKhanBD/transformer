@@ -123,6 +123,10 @@ def main():
     model: TransformerLM = torch.compile(
         model, backend=backend, disable=not compile_model
     )
+    if os.path.exists(save_file_name):
+        checkpoint = load(save_file_name)
+        model.load_state_dict(checkpoint["model"])
+
     if ddp:
         model = DDP(model, device_ids=[local_rank])
         raw_model = model.module
@@ -135,6 +139,8 @@ def main():
     print_master(f"Number of devices:{world_size}")
     # optimizer
     optim = raw_model.get_optimizer(lr, weight_decay, betas, fused=is_cuda)
+    if os.path.exists(save_file_name):
+        optim.load_state_dict(checkpoint["optim"])
 
     # dataset
     train_dataset = TextDataset(
@@ -148,8 +154,7 @@ def main():
     train_data = StatefulDataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     val_data = StatefulDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    try:
-        checkpoint = load(save_file_name)
+    if os.path.exists(save_file_name):
         data_state = load(save_file_name, "training_info.pt", False)
         dataset_state = load(save_file_name, f"dataset_info_rank{rank}.pt", False)
         print_master(data_state)
@@ -159,11 +164,8 @@ def main():
         train_data.load_state_dict(dataset_state["train_data"])
         val_data.load_state_dict(dataset_state["val_data"])
 
-        model.load_state_dict(checkpoint["model"])
-        optim.load_state_dict(checkpoint["optim"])
-
         print_master("loaded: True")
-    except FileNotFoundError:
+    else:
         train_i = 1
         val_i = 1
         print_master("loaded: False")
