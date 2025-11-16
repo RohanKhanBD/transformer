@@ -267,8 +267,8 @@ def main():
                 dist.all_gather_object(train_data_gather, train_data.state_dict())
                 dist.all_gather_object(val_data_gather, val_data.state_dict())
             else:
-                train_data_gather[0] = train_data_iter.state_dict()
-                val_data_gather[0] = val_data_iter.state_dict()
+                train_data_gather[0] = train_data.state_dict()
+                val_data_gather[0] = val_data.state_dict()
 
             data_state = {
                 "train_data": train_data_gather,
