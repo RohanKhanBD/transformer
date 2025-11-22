@@ -5,59 +5,69 @@ from math import pi, cos
 from dataclasses import dataclass
 
 
-class TextDataset(torch.utils.data.Dataset):
+class TextDataset(torch.utils.data.IterableDataset):
     def __init__(
-        self,
-        shard_file: str,
-        maxlen: int,
-        shard: str,
+        self, shard_file: str, maxlen: int, shard: str, rank: int, word_size: int
     ):
-        self.shard_file = shard_file
+        super().__init__()
+        self.rank = rank
+        self.world_size = word_size
 
+        self.shard_file = shard_file
         shards = os.listdir(shard_file)
         shards = sorted(shards)
         shards = [i for i in shards if shard in i]
         self.shards = shards
         self.shard_i = 0
-        self.data = load(shard_file, self.shards[self.shard_i], False).astype("int32")
 
         self.maxlen = maxlen
 
-        self.shard_len = []
-        self.shard_offset = []
-        offset = 0
-        for i in shards:
-            data = load(shard_file, i, False)
-            s_len = len(data)
-            self.shard_len.append(s_len)
-            self.shard_offset.append(offset)
-            offset += s_len
-        self.total_len = offset
+        self.data = load(
+            self.shard_file, self.shards[self.shard_i], weights_only=False
+        ).astype("int32")
 
-    def __getitem__(self, idx):
-        idx = idx * self.maxlen
-        idx = idx % self.total_len
-        if idx > self.shard_offset[self.shard_i] + self.shard_len[self.shard_i]:
+        self.idx = rank * maxlen
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        start = self.idx
+        end = start + self.maxlen
+
+        token = self.data[start : end + 1]
+        if not isinstance(token, torch.Tensor):
+            token = torch.tensor(token, dtype=torch.long)
+
+        x = token[:-1]
+        y = token[1:]
+
+        self.idx += self.maxlen * self.world_size
+        if self.idx + (self.maxlen * self.world_size + 1) > len(self.data):
+            print_master(self.idx)
+            self.idx = self.rank * self.maxlen
             self.shard_i = (self.shard_i + 1) % len(self.shards)
-            self.data = load(self.shard_file, self.shards[self.shard_i], False)
-            print_master(f"global idx:{idx}")
-            print_master(f"shard idx:{self.shard_i}")
-        local_idx = idx - self.shard_offset[self.shard_i]
-        tokens = self.data[local_idx : local_idx + self.maxlen + 1]
-        if not isinstance(tokens, torch.Tensor):
-            tokens = torch.tensor(tokens, dtype=torch.long)
-        x = tokens[:-1]
-        y = tokens[1:]
+            print_master(self.shard_i)
+            self.data = load(
+                self.shard_file, self.shards[self.shard_i], weights_only=False
+            ).astype("int32")
+
         return x, y
 
-    def __len__(self):
-        return self.total_len
+    def state_dict(self):
+        return {"shard_i": self.shard_i, "idx": self.idx}
+
+    def load_state_dict(self, state_dict: dict):
+        self.shard_i = state_dict["shard_i"]
+        self.idx = state_dict["idx"]
+        self.data = load(
+            self.shard_file, self.shards[self.shard_i], weights_only=False
+        ).astype("int32")
 
 
 @torch.no_grad()
 def est_loss(
     model: torch.nn.Module,
-    val_dataloader: torch.utils.data.DataLoader,
     val_iter,
     eval_steps: int,
     device: str,
@@ -69,11 +79,7 @@ def est_loss(
     model.eval()
     losses = torch.zeros(eval_steps, device=device)
     for i in range(eval_steps):
-        try:
-            x, y = next(val_iter)
-        except StopIteration:
-            val_iter = iter(val_dataloader)
-            x, y = next(val_iter)
+        x, y = next(val_iter)
         x, y = x.to(device), y.to(device)
         with torch.autocast(
             device_type=device_type,

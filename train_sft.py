@@ -4,7 +4,7 @@ import torch
 import torch.distributed as dist
 
 from torch import GradScaler
-from torch.utils.data import DataLoader, DistributedSampler
+from torchdata.stateful_dataloader import StatefulDataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from time import time
@@ -120,24 +120,24 @@ def main():
     optim = raw_model.get_optimizer(lr, weight_decay, betas)
 
     # datasets
-    train_dataset = TextDataset(data_file_name, model_conf.maxlen, "train")
-    val_dataset = TextDataset(data_file_name, model_conf.maxlen, "val")
-
-    # sampler
-    if ddp:
-        train_sampler = DistributedSampler(train_dataset, shuffle=False)
-        val_sampler = DistributedSampler(val_dataset, shuffle=False)
+    train_dataset = TextDataset(
+        data_file_name, model_conf.maxlen, "train", rank, world_size
+    )
+    val_dataset = TextDataset(
+        data_file_name, model_conf.maxlen, "val", rank, world_size
+    )
 
     # dataloader
-    train_data = DataLoader(train_dataset, shuffle=False, sampler=train_sampler)
-    val_data = DataLoader(val_dataset, shuffle=False, sampler=val_sampler)
+    train_data = StatefulDataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    val_data = StatefulDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+    train_data_iter = iter(train_data)
+    val_data_iter = iter(val_data)
 
     # amp scaler
     use_scaler = use_autocast and (dtype == torch.float16)
     scaler = GradScaler(enabled=use_scaler)
 
-    train_data_iter = iter(train_data)
-    val_data_iter = iter(val_data)
     x, y = next(train_data_iter)
     x, y = x.to(device), y.to(device)
     t0 = time()
@@ -153,7 +153,6 @@ def main():
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(
                 model,
-                val_data,
                 val_data_iter,
                 eval_steps,
                 device,

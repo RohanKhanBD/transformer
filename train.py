@@ -5,7 +5,7 @@ import torch.distributed as dist
 
 from torch import GradScaler
 from torch.utils.tensorboard import SummaryWriter
-from torch.utils.data import DataLoader, DistributedSampler
+from torchdata.stateful_dataloader import StatefulDataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from time import time
@@ -123,6 +123,10 @@ def main():
     model: TransformerLM = torch.compile(
         model, backend=backend, disable=not compile_model
     )
+    if os.path.exists(save_file_name):
+        checkpoint = load(save_file_name)
+        model.load_state_dict(checkpoint["model"])
+
     if ddp:
         model = DDP(model, device_ids=[local_rank])
         raw_model = model.module
@@ -135,42 +139,33 @@ def main():
     print_master(f"Number of devices:{world_size}")
     # optimizer
     optim = raw_model.get_optimizer(lr, weight_decay, betas, fused=is_cuda)
+    if os.path.exists(save_file_name):
+        optim.load_state_dict(checkpoint["optim"])
 
     # dataset
-    train_dataset = TextDataset(data_file_name, model_conf.maxlen, "train")
-    val_dataset = TextDataset(data_file_name, model_conf.maxlen, "val")
-
-    # sampler
-    if ddp:
-        train_sampler = DistributedSampler(train_dataset, shuffle=False)
-        val_sampler = DistributedSampler(val_dataset, shuffle=False)
-    else:
-        train_sampler = None
-        val_sampler = None
+    train_dataset = TextDataset(
+        data_file_name, model_conf.maxlen, "train", rank, world_size
+    )
+    val_dataset = TextDataset(
+        data_file_name, model_conf.maxlen, "val", rank, world_size
+    )
 
     # data loader
-    train_data = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=False, sampler=train_sampler
-    )
-    val_data = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, sampler=val_sampler
-    )
+    train_data = StatefulDataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    val_data = StatefulDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    try:
-        checkpoint = load(save_file_name)
-        data_state = load(save_file_name, "data_state_and_training_info.pt", False)
+    if os.path.exists(save_file_name):
+        data_state = load(save_file_name, "training_info.pt", False)
+        dataset_state = load(save_file_name, f"dataset_info_rank{rank}.pt", False)
         print_master(data_state)
         train_i = data_state["step"]
         val_i = data_state["val_i"]
 
-        train_data = data_state["train_data"]
-        val_data = data_state["val_data"]
-
-        model.load_state_dict(checkpoint["model"])
-        optim.load_state_dict(checkpoint["optim"])
+        train_data.load_state_dict(dataset_state["train_data"])
+        val_data.load_state_dict(dataset_state["val_data"])
 
         print_master("loaded: True")
-    except FileNotFoundError:
+    else:
         train_i = 1
         val_i = 1
         print_master("loaded: False")
@@ -194,7 +189,6 @@ def main():
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(
                 model,
-                val_data,
                 val_data_iter,
                 eval_steps,
                 device,
@@ -268,15 +262,21 @@ def main():
             checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
 
             data_state = {
-                "train_data": train_data,
-                "val_data": val_data,
                 "step": i + 1,
                 "val_i": val_i,
             }
             save(checkpoint, save_file_name)
             save(model_conf, save_file_name, "model_config.pt")
-            save(data_state, save_file_name, "data_state_and_training_info.pt")
+            save(data_state, save_file_name, "training_info.pt")
             print_master("saved checkpoint")
+        if i % save_rate == 0 or i == steps:
+            print(f"rank:{rank} saving dataset state dicts...")
+            dataset_state = {
+                "train_data": train_data.state_dict(),
+                "val_data": val_data.state_dict(),
+            }
+            save(dataset_state, save_file_name, f"dataset_info_rank{rank}.pt")
+            print(f"rank:{rank} saved dataset state dicts")
     if ddp:
         dist.destroy_process_group()
 
