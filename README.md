@@ -44,7 +44,7 @@ pip install -r requirements.txt
 You have two options for tokenization:
 
 ### Option A: Use Mistral's Pre-trained Tokenizer (Recommended)
-Skip the tokenizer training step and use the `--load_mistral_tokenizer=True` flag in subsequent steps. This leverages Mistral's proven vocabulary and is great for quick experimentation and production use.
+Skip the tokenizer training step and use the `--load_mistral_tokenizer` flag in subsequent steps. This leverages Mistral's proven vocabulary and is great for quick experimentation and production use.
 
 **Setup:** Download only the `tokenizer.json` file (not the model weights) from [Mistral-Nemo-Base-2407](https://huggingface.co/mistralai/Mistral-Nemo-Base-2407/tree/main) and place it in your project directory.
 
@@ -83,7 +83,7 @@ python train_tokenizer.py
 python tokenize_data.py
 
 # OR with Mistral tokenizer
-python tokenize_data.py --load_mistral_tokenizer=True
+python tokenize_data.py --load_mistral_tokenizer
 ```
 
 **Data Tokenization Options:**
@@ -105,10 +105,10 @@ python tokenize_data.py --load_mistral_tokenizer=True
 #### 2️⃣ Train the Model
 ```bash
 # With custom tokenizer
-python train.py
+python train.py --compile_model --use_autocast
 
 # OR with Mistral tokenizer
-python train.py --load_mistral_tokenizer=True
+python train.py --compile_model --use_autocast --load_mistral_tokenizer
 ```
 
 **Training Options:**
@@ -141,10 +141,10 @@ python train.py --load_mistral_tokenizer=True
 #### 3️⃣ Generate Text
 ```bash
 # With custom tokenizer
-python generate.py --input_text "Hello" --num_tokens_to_generate 20
+python generate.py --input_text "Hello" --num_tokens_to_generate 20 --compile_model
 
 # OR with Mistral tokenizer
-python generate.py --input_text "Hello" --num_tokens_to_generate 20 --load_mistral_tokenizer=True
+python generate.py --input_text "Hello" --num_tokens_to_generate 20 --load_mistral_tokenizer --compile_model
 ```
 
 **Generation Options:**
@@ -164,10 +164,10 @@ python generate.py --input_text "Hello" --num_tokens_to_generate 20 --load_mistr
 **Examples:**
 ```bash
 # With custom tokenizer
-python generate.py --input_text "Once upon a time" --num_tokens_to_generate 50 --temperature 0.7 --top_p 0.9
+python generate.py --input_text "Once upon a time" --num_tokens_to_generate 50 --temperature 0.7 --top_p 0.9 --compile_model
 
 # With Mistral tokenizer
-python generate.py --input_text "Once upon a time" --num_tokens_to_generate 50 --temperature 0.7 --top_p 0.9 --load_mistral_tokenizer=True
+python generate.py --input_text "Once upon a time" --num_tokens_to_generate 50 --temperature 0.7 --top_p 0.9 --load_mistral_tokenizer --compile_model
 ```
 
 ---
@@ -192,7 +192,7 @@ SFT is perfect for:
 python tokenize_sft_data.py
 
 # OR with Mistral tokenizer
-python tokenize_sft_data.py --load_mistral_tokenizer=True
+python tokenize_sft_data.py --load_mistral_tokenizer
 ```
 
 **SFT Data Tokenization Options:**
@@ -209,10 +209,10 @@ python tokenize_sft_data.py --load_mistral_tokenizer=True
 #### 2️⃣ Fine-tune the Model
 ```bash
 # With custom tokenizer
-python train_sft.py
+python train_sft.py --compile_model --use_autocast
 
 # OR with Mistral tokenizer (recommended)
-python train_sft.py --load_mistral_tokenizer=True
+python train_sft.py --load_mistral_tokenizer --compile_model --use_autocast
 ```
 
 **SFT Training Options:**
@@ -244,10 +244,10 @@ python train_sft.py --load_mistral_tokenizer=True
 #### 3️⃣ Test Your Fine-tuned Model
 ```bash
 # With custom tokenizer
-python generate.py --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst
+python generate.py --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst --compile_model
 
 # OR with Mistral tokenizer
-python generate.py --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst --load_mistral_tokenizer=True
+python generate.py --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst --load_mistral_tokenizer --compile_model
 ```
 
 ---
@@ -257,7 +257,7 @@ python generate.py --input_text "Python is" --num_tokens_to_generate 100 --save_
 ### Tokenizer Consistency
 **Critical:** You must use the same tokenizer throughout your entire pipeline:
 
-- ✅ If you used `--load_mistral_tokenizer=True` for pre-training data, use it for SFT and generation
+- ✅ If you used `--load_mistral_tokenizer` for pre-training data, use it for SFT and generation
 - ✅ If you used your custom tokenizer for pre-training, use it for SFT and generation
 - ❌ Mixing tokenizers will cause errors or produce gibberish output
 
