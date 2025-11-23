@@ -11,12 +11,12 @@ def tokenize_args(train_tokenizer=False):
 
     if train_tokenizer:
         parser.add_argument("--tokenizer_train_shard_size", type=int, default=5_000_000)
-        parser.add_argument("--trust_remote_code", type=bool, default=False)
+        parser.add_argument("--trust_remote_code", action="store_true")
 
     else:
         parser.add_argument("--data_file_name", type=str, default="encoded_data")
         parser.add_argument("--encoded_dataset_shard_size", type=int, default=int(1e8))
-        parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
+        parser.add_argument("--load_mistral_tokenizer", action="store_true")
 
     args = parser.parse_args()
     return args
@@ -31,7 +31,7 @@ def sft_args():
     parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--data_file_name", type=str, default="sft_data")
     parser.add_argument("--encoded_dataset_shard_size", type=int, default=int(1e8))
-    parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
+    parser.add_argument("--load_mistral_tokenizer", action="store_ture")
     args = parser.parse_args()
     return args
 
@@ -45,8 +45,8 @@ def generate_args():
     parser.add_argument("--save_file_name", type=str, default="lilgpt")
     parser.add_argument("--backend", type=str, default="inductor")
     parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
-    parser.add_argument("--compile_model", type=bool, default=True)
-    parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
+    parser.add_argument("--compile_model", action="store_true")
+    parser.add_argument("--load_mistral_tokenizer", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -72,9 +72,9 @@ def train_args():
     parser.add_argument("--data_file_name", type=str, default="encoded_data")
     parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--dtype", type=str, default="bf16")
-    parser.add_argument("--compile_model", type=bool, default=True)
-    parser.add_argument("--use_autocast", type=bool, default=True)
-    parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
+    parser.add_argument("--compile_model", action="store_true")
+    parser.add_argument("--use_autocast", action="store_true")
+    parser.add_argument("--load_mistral_tokenizer", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -99,8 +99,8 @@ def sft_train_args():
     parser.add_argument("--data_file_name", type=str, default="sft_data")
     parser.add_argument("--tokenizer_file_name", type=str, default="tokenizer")
     parser.add_argument("--dtype", type=str, default="bf16")
-    parser.add_argument("--compile_model", type=bool, default=True)
-    parser.add_argument("--use_autocast", type=bool, default=True)
-    parser.add_argument("--load_mistral_tokenizer", type=bool, default=True)
+    parser.add_argument("--compile_model", action="store_true")
+    parser.add_argument("--use_autocast", action="store_true")
+    parser.add_argument("--load_mistral_tokenizer", action="store_true")
     args = parser.parse_args()
     return args
