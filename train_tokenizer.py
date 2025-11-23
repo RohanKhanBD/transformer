@@ -31,7 +31,9 @@ if __name__ == "__main__":
                 break
         trained = tok.train(text_point)
         print(trained)
-    tok.regester_special_token({"<pad>": 0, "<|endoftext|>": 1})
+    tok.regester_special_token(
+        {"<unk>": 0, "<s>": 1, "</s>": 2, "[INST]": 3, "[/INST]": 4, "<pad>": 5}
+    )
     print(tok.vocab)
     print(tok.special_token)
     tok.save(tokenizer_file_name)
