@@ -85,19 +85,26 @@ def main():
     # model init
     set_seed(seed + rank)
     model_conf = TransformerLM.get_transformer_config(
+        # full model
         maxlen=512,
-        embedding_dim=256,
+        embedding_dim=512,
         num_heads=8,
         n_layers=8,
         inter_dim=256 + 128,
-        window_size=384,
+        # attention
         mla=True,
         kv_lora_rank=64,
         qk_rope_dim=64,
         qk_nope_dim=128,
         v_dim=128,
         flash=is_cuda,
-        atten_types=[AttentionMask.Local],
+        # rope
+        base=100000,
+        # drop-out
+        atten_dropout=0.1,
+        ffn_dropout=0.1,
+        embedding_dropout=0.1,
+        atten_types=[AttentionMask.Global],
     )
 
     ## model flops
