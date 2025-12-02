@@ -44,10 +44,8 @@ class TextDataset(torch.utils.data.IterableDataset):
 
         self.idx += self.maxlen * self.world_size
         if self.idx + (self.maxlen * self.world_size + 1) > len(self.data):
-            print_master(self.idx)
             self.idx = self.rank * self.maxlen
             self.shard_i = (self.shard_i + 1) % len(self.shards)
-            print_master(self.shard_i)
             self.data = load(
                 self.shard_file, self.shards[self.shard_i], weights_only=False
             ).astype("int32")
