@@ -31,7 +31,6 @@ if __name__ == "__main__":
 
     def tokenize_messages(messages):
         mes = "<s>"
-        # TODO: Update tokenizer to have user start and end tokens and assistent start and end tokens.
         for tab in messages["messages"]:
             role = f"[INST]{tab['role']}[/INST]"
             content = f"{tab['content']}"
