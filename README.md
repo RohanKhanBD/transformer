@@ -77,8 +77,8 @@ python train_tokenizer.py
 
 **Pre-trained Resources (Custom Tokenizer Only):**
 
-* 📦 Custom BPE Tokenizer (Kaggle)
-* 📊 Pre-tokenized FineWeb-Edu Dataset
+* 📦 [Custom BPE Tokenizer (Kaggle)](https://www.kaggle.com/models/rohankhanbd/lilbpetokenizer)
+* 📊 [Pre-tokenized FineWeb-Edu Dataset](https://www.kaggle.com/datasets/rohankhanbd/lil-fineweb-dataset)
 
 > ⚠️ These resources only work with the custom tokenizer, **not** Mistral.
 
@@ -109,7 +109,7 @@ python tokenize_data.py --load_mistral_tokenizer
 | `--encoded_dataset_shard_size` |
 | `--load_mistral_tokenizer`     |
 
-**Pre-tokenized Dataset (Custom Only):** FineWeb-Edu 10B subset.
+**Pre-tokenized Dataset (Custom Only):** [FineWeb-Edu 10B subset](https://www.kaggle.com/datasets/rohankhanbd/lil-fineweb-dataset).
 
 > ⚠️ Only compatible with the custom tokenizer.
 
