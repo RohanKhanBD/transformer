@@ -53,7 +53,7 @@ Choose one of the two paths:
 
 Use the flag `--load_mistral_tokenizer` in training and generation steps.
 
-**Setup:** Download only the `tokenizer.json` from **Mistral-Nemo-Base-2407** and place it in your project directory.
+**Setup:** Download only the `tokenizer.json` from **[Mistral-Nemo-Base-2407](https://huggingface.co/mistralai/Mistral-Nemo-Base-2407/tree/main)** and place it in your project directory.
 
 > 💡 **Skip tokenizer training entirely.** Ideal for production or rapid prototyping.
 
