@@ -37,13 +37,10 @@ def main():
     model.load_state_dict(checkpoint["model"])
     model.eval()
 
-    if load_mistral_tokenizer:
-        stop_tokens = [
-            tokenizer.special_token["</s>"],
-            tokenizer.special_token["<unk>"],
-        ]
-    else:
-        stop_tokens = [tokenizer.special_token["<|endoftext|>"]]
+    stop_tokens = [
+        tokenizer.special_token["</s>"],
+        tokenizer.special_token["<unk>"],
+    ]
     generated_tokens = model.generate(
         dev,
         tokenizer.special_token["<pad>"],

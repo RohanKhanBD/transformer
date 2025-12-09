@@ -4,7 +4,6 @@ import torch
 import torch.distributed as dist
 
 from torch import GradScaler
-from torch.utils.tensorboard import SummaryWriter
 from torchdata.stateful_dataloader import StatefulDataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -12,23 +11,14 @@ from time import time
 
 from tokenizer import Tokenizer
 from model import TransformerLM
-from utils import (
-    TextDataset,
-    AttentionMask,
-    load,
-    save,
-    est_loss,
-    get_lr,
-    set_seed,
-    print_master,
-)
 
-from config_args import train_args
+from utils import TextDataset, ModelConfig, save, load, est_loss, get_lr, print_master
+from config_args import sft_train_args
 from flops import transformer_flops
 
 
 def main():
-    file_args = train_args()
+    file_args = sft_train_args()
     steps = file_args.steps
     eval_rate = file_args.eval_rate
     eval_steps = file_args.eval_steps
@@ -40,7 +30,6 @@ def main():
     warm_up = file_args.warm_up
     total_batch_size = file_args.total_batch_size
     batch_size = file_args.batch_size
-    seed = file_args.seed
     compile_model = file_args.compile_model
     backend = file_args.backend
     save_file_name = file_args.save_file_name
@@ -52,15 +41,9 @@ def main():
     dtype = file_args.dtype
     dtype = {"bf16": torch.bfloat16, "f16": torch.float16}[dtype]
 
-    writer = SummaryWriter()
-    tok = Tokenizer()
-    if load_mistral_tokenizer:
-        tok.load_mistral_tokenizer(tokenizer_file_name)
-    else:
-        tok.load(tokenizer_file_name)
     is_cuda = torch.cuda.is_available()
 
-    # Distributed Data Parallel init
+    # init multi-gpu training
     ddp = int(os.environ.get("RANK", -1)) != -1
     if ddp:
         assert is_cuda, "Need gpu for ddp training."
@@ -82,30 +65,16 @@ def main():
         if is_cuda:
             torch.cuda.set_device(device)
 
-    # model init
-    set_seed(seed + rank)
-    model_conf = TransformerLM.get_transformer_config(
-        # full model
-        maxlen=512,
-        embedding_dim=512,
-        num_heads=8,
-        n_layers=8,
-        inter_dim=256 + 128,
-        # attention
-        mla=True,
-        kv_lora_rank=64,
-        qk_rope_dim=64,
-        qk_nope_dim=128,
-        v_dim=128,
-        flash=is_cuda,
-        # rope
-        base=100000,
-        # drop-out
-        atten_dropout=0.1,
-        ffn_dropout=0.1,
-        embedding_dropout=0.1,
-        atten_types=[AttentionMask.Global],
-    )
+    # loading tokenizer for the vocab_size
+    tok = Tokenizer()
+    if load_mistral_tokenizer:
+        tok.load_mistral_tokenizer(tokenizer_file_name)
+    else:
+        tok.load(tokenizer_file_name)
+
+    # Loading the model checkpoint and config
+    checkpoint = load(save_file_name, weights_only=True)
+    model_conf: ModelConfig = load(save_file_name, "model_config.pt", False)
 
     ## model flops
     flops_per_token = transformer_flops(
@@ -121,19 +90,21 @@ def main():
         v_dim=model_conf.v_dim,
     )
 
+    # get grad accum
     assert total_batch_size % (batch_size * model_conf.maxlen * world_size) == 0, (
         "total_batch_size has divisible by batch_size * maxlen * world_size"
     )
-    grad_ecum = total_batch_size // (batch_size * model_conf.maxlen * world_size)
+    grad_accum = total_batch_size // (batch_size * model_conf.maxlen * world_size)
+
+    # making the model
     model = TransformerLM(model_conf, tok.vocab_size)
     model.to(device)
     model: TransformerLM = torch.compile(
         model, backend=backend, disable=not compile_model
     )
-    if os.path.exists(save_file_name):
-        checkpoint = load(save_file_name)
-        model.load_state_dict(checkpoint["model"])
+    model.load_state_dict(checkpoint["model"])
 
+    # init ddp
     if ddp:
         model = DDP(model, device_ids=[local_rank])
         raw_model = model.module
@@ -144,12 +115,11 @@ def main():
     print_master(model)
     print_master(model_params)
     print_master(f"Number of devices:{world_size}")
-    # optimizer
-    optim = raw_model.get_optimizer(lr, weight_decay, betas, fused=is_cuda)
-    if os.path.exists(save_file_name):
-        optim.load_state_dict(checkpoint["optim"])
 
-    # dataset
+    # making the optimizer
+    optim = raw_model.get_optimizer(lr, weight_decay, betas)
+
+    # datasets
     train_dataset = TextDataset(
         data_file_name, model_conf.maxlen, "train", rank, world_size
     )
@@ -157,42 +127,29 @@ def main():
         data_file_name, model_conf.maxlen, "val", rank, world_size
     )
 
-    # data loader
+    # dataloader
     train_data = StatefulDataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     val_data = StatefulDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    if os.path.exists(save_file_name):
-        data_state = load(save_file_name, "training_info.pt", False)
-        dataset_state = load(save_file_name, f"dataset_info_rank{rank}.pt", False)
-        print_master(data_state)
-        train_i = data_state["step"]
-        val_i = data_state["val_i"]
-
-        train_data.load_state_dict(dataset_state["train_data"])
-        val_data.load_state_dict(dataset_state["val_data"])
-
-        print_master("loaded: True")
-    else:
-        train_i = 1
-        val_i = 1
-        print_master("loaded: False")
+    train_data_iter = iter(train_data)
+    val_data_iter = iter(val_data)
 
     # amp scaler
     use_scaler = use_autocast and (dtype == torch.float16)
     scaler = GradScaler(enabled=use_scaler)
 
-    train_data_iter = iter(train_data)
-    val_data_iter = iter(val_data)
     x, y = next(train_data_iter)
     x, y = x.to(device), y.to(device)
     t0 = time()
 
-    for i in range(train_i, steps + 1):
+    # step loop
+    for i in range(1, steps + 1):
         ploss = 0.0
         n_lr = get_lr(i, steps, lr, min_lr, warm_up)
         for param_group in optim.param_groups:
             param_group["lr"] = n_lr
-        # ------- Eval -------
+
+        # Eval
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(
                 model,
@@ -205,16 +162,16 @@ def main():
                 dtype,
             )
             if ddp:
-                dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
-            if master_process:
-                writer.add_scalar("loss/val", e_loss, val_i)
-            val_i += 1
+                dist.all_reduce(e_loss, dist.ReduceOp.AVG)
             print_master(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
+
+        # sync after eval
         if is_cuda:
             torch.cuda.synchronize()
-        # ------- Train -------
-        for grad_i in range(grad_ecum):
-            no_sync_enable = grad_i < grad_ecum - 1
+
+        # Train
+        for grad_i in range(grad_accum):
+            no_sync_enable = grad_i < grad_accum - 1
             if no_sync_enable and ddp:
                 with model.no_sync():
                     with torch.autocast(
@@ -223,7 +180,7 @@ def main():
                         enabled=is_cuda and use_autocast,
                     ):
                         _, loss = model.forward(x, y)
-                    loss = loss / grad_ecum
+                    loss = loss / grad_accum
                     scaler.scale(loss).backward()
             else:
                 with torch.autocast(
@@ -232,58 +189,43 @@ def main():
                     enabled=is_cuda and use_autocast,
                 ):
                     _, loss = model.forward(x, y)
-                loss = loss / grad_ecum
+                loss = loss / grad_accum
                 scaler.scale(loss).backward()
             x, y = next(train_data_iter)
             x, y = x.to(device), y.to(device)
             ploss += loss.detach()
         if ddp:
-            dist.all_reduce(ploss, op=dist.ReduceOp.AVG)
+            dist.all_reduce(ploss, dist.ReduceOp.AVG)
 
+        # optim update
         scaler.unscale_(optim)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         scaler.step(optim)
         scaler.update()
         optim.zero_grad()
 
+        # sync after train
         if is_cuda:
             torch.cuda.synchronize()
 
         t1 = time()
         dt = t1 - t0
         t0 = t1
-        tok_per_sec = (batch_size * model_conf.maxlen * grad_ecum * world_size) / dt
-        flops_achived = flops_per_token * (batch_size * grad_ecum * world_size) / dt
+        tok_per_sec = (batch_size * model_conf.maxlen * grad_accum * world_size) / dt
+        flops_achived = flops_per_token * (batch_size * grad_accum * world_size) / dt
         mfu = (flops_achived / promissed_flops) * 100
         print_master(
             f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
         )
-        if master_process:
-            writer.add_scalar("loss/train", ploss, i)
-            writer.add_scalar("model/lr", n_lr, i)
-            writer.add_scalar("model/norm", norm.item(), i)
-            writer.flush()
-        # ------- Save -------
-        if (i % save_rate == 0 or i == steps) and master_process:
+        if (save_rate % i == 0 or i == steps) and master_process:
             print_master("saving checkpoint...")
             checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
 
-            data_state = {
-                "step": i + 1,
-                "val_i": val_i,
-            }
-            save(checkpoint, save_file_name)
-            save(model_conf, save_file_name, "model_config.pt")
-            save(data_state, save_file_name, "training_info.pt")
+            save(checkpoint, f"{save_file_name}_inst")
+            save(model_conf, f"{save_file_name}_inst", "model_config.pt")
             print_master("saved checkpoint")
-        if i % save_rate == 0 or i == steps:
-            print(f"rank:{rank} saving dataset state dicts...")
-            dataset_state = {
-                "train_data": train_data.state_dict(),
-                "val_data": val_data.state_dict(),
-            }
-            save(dataset_state, save_file_name, f"dataset_info_rank{rank}.pt")
-            print(f"rank:{rank} saved dataset state dicts")
+
+    # end dist
     if ddp:
         dist.destroy_process_group()
 

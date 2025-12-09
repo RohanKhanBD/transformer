@@ -30,13 +30,9 @@ if __name__ == "__main__":
 
     def tokenize(token):
         token = token["text"]
-        if load_mistral_tokenizer:
-            data = [tok.special_token["<s>"]]
-            data.extend(tok.encode(token))
-            data.append(tok.special_token["</s>"])
-        else:
-            data = [tok.special_token["<|endoftext|>"]]
-            data.extend(tok.encode(token))
+        data = [tok.special_token["<s>"]]
+        data.extend(tok.encode(token))
+        data.append(tok.special_token["</s>"])
         return data
 
     nproc = max(1, os.cpu_count() // 2)

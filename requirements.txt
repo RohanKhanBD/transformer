@@ -1,6 +1,7 @@
 torch==2.8.0
 torchvision
 torchaudio
+torchdata
 datasets
 tensorboard
 tqdm
