@@ -1,5 +1,5 @@
 import torch
-from ..model import TransformerLM
+from model import TransformerLM
 
 
 def model_loss(
