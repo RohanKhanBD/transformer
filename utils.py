@@ -63,33 +63,6 @@ class TextDataset(torch.utils.data.IterableDataset):
         ).astype("int32")
 
 
-@torch.no_grad()
-def est_loss(
-    model: torch.nn.Module,
-    val_iter,
-    eval_steps: int,
-    device: str,
-    device_type: str,
-    is_cuda: bool,
-    use_autocast: bool,
-    dtype: torch.dtype,
-):
-    model.eval()
-    losses = torch.zeros(eval_steps, device=device)
-    for i in range(eval_steps):
-        x, y = next(val_iter)
-        x, y = x.to(device), y.to(device)
-        with torch.autocast(
-            device_type=device_type,
-            dtype=dtype,
-            enabled=is_cuda and use_autocast,
-        ):
-            _, loss = model.forward(x, y)
-        losses[i] = loss.item()
-    model.train()
-    return losses.mean()
-
-
 def get_lr(iter: int, steps: int, lr: float, min_lr: float, warm_up: int):
     if iter < warm_up:
         return lr * iter / warm_up
