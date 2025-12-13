@@ -13,7 +13,15 @@ from model import TransformerLM
 from utils import TextDataset, ModelConfig, save, load, get_lr, print_master
 from config_args import sft_train_args
 from flops import transformer_flops
-from training import dist_init, kill_dist, model_loss, est_loss, all_reduce, sync
+from training import (
+    dist_init,
+    kill_dist,
+    model_loss,
+    est_loss,
+    all_reduce,
+    sync,
+    barrier,
+)
 
 
 def main():
@@ -196,6 +204,7 @@ def main():
             save(checkpoint, f"{save_file_name}_inst")
             save(model_conf, f"{save_file_name}_inst", "model_config.pt")
             print_master("saved checkpoint")
+        barrier(ddp)
 
     # end dist
     kill_dist(ddp)
