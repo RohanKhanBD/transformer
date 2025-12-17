@@ -13,7 +13,6 @@ from time import time
 from tokenizer import Tokenizer
 from model import TransformerLM
 from utils import (
-    TextDataset,
     AttentionMask,
     load,
     save,
@@ -22,6 +21,7 @@ from utils import (
     print_master,
 )
 
+from data import TextDataset
 from config_args import train_args
 from flops import transformer_flops
 from training import (

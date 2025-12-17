@@ -10,7 +10,8 @@ from time import time
 from tokenizer import Tokenizer
 from model import TransformerLM
 
-from utils import TextDataset, ModelConfig, save, load, get_lr, print_master
+from utils import ModelConfig, save, load, get_lr, print_master
+from data import TextDataset
 from config_args import sft_train_args
 from flops import transformer_flops
 from training import (
