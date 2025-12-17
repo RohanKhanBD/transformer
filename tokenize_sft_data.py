@@ -1,12 +1,7 @@
-import os
 import datasets
-import numpy as np
 
-from tqdm import tqdm
-from utils import save
+from data import pre_process
 from tokenizer import Tokenizer
-from multiprocessing import Pool
-
 from config_args import sft_args
 
 if __name__ == "__main__":
@@ -39,35 +34,6 @@ if __name__ == "__main__":
         mes += "</s>"
         return tok.encode(mes)
 
-    nproc = max(1, os.cpu_count() // 2)
-    with Pool(nproc) as p:
-        c_data = np.empty((encoded_dataset_shard_size,), dtype=np.uint32)
-        processed_size = 0
-        shard = 0
-        bar = None
-        for tokens in p.imap(tokenize_messages, sft_dataset, chunksize=16):
-            if processed_size + len(tokens) < encoded_dataset_shard_size:
-                c_data[processed_size : processed_size + len(tokens)] = np.array(tokens)
-                processed_size += len(tokens)
-                if bar is None:
-                    bar = tqdm(
-                        total=encoded_dataset_shard_size,
-                        desc=f"Shard {shard}",
-                        unit="tokens",
-                    )
-                bar.update(len(tokens))
-            else:
-                shard_type = "val" if shard == 0 else "train"
-                remainder = encoded_dataset_shard_size - processed_size
-                bar.update(remainder)
-                c_data[processed_size : processed_size + remainder] = np.array(
-                    tokens[:remainder]
-                )
-                save(c_data, data_file_name, f"{shard_type}_{shard}.pt")
-                shard += 1
-                bar = None
-                c_data[0 : len(tokens) - remainder] = np.array(tokens[remainder:])
-                processed_size = len(tokens) - remainder
-    if processed_size != 0:
-        shard_type = "val" if shard == 0 else "train"
-        save(c_data[:processed_size], data_file_name, f"{shard_type}_{shard}.pt")
+    pre_process(
+        encoded_dataset_shard_size, sft_dataset, data_file_name, tokenize_messages
+    )
