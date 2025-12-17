@@ -84,7 +84,7 @@ def main():
         inter_dim=256 + 128,
         # attention
         mla=True,
-        kv_lora_rank=64,
+        kv_lora_rank=128,
         qk_rope_dim=64,
         qk_nope_dim=128,
         v_dim=128,
@@ -95,7 +95,12 @@ def main():
         atten_dropout=0.1,
         ffn_dropout=0.1,
         embedding_dropout=0.1,
-        atten_types=[AttentionMask.Global],
+        atten_types=[
+            AttentionMask.Global,
+            AttentionMask.Local,
+            AttentionMask.Local,
+            AttentionMask.Local,
+        ],
     )
 
     ## model flops
