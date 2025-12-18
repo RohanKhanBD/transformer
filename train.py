@@ -1,9 +1,9 @@
 import os
 
 import torch
-import torch.distributed as dist
 
 from torch import GradScaler
+from torch.distributed import ReduceOp as rop
 from torch.utils.tensorboard import SummaryWriter
 from torchdata.stateful_dataloader import StatefulDataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -13,18 +13,26 @@ from time import time
 from tokenizer import Tokenizer
 from model import TransformerLM
 from utils import (
-    TextDataset,
     AttentionMask,
     load,
     save,
-    est_loss,
     get_lr,
     set_seed,
     print_master,
 )
 
+from data import TextDataset
 from config_args import train_args
 from flops import transformer_flops
+from training import (
+    dist_init,
+    kill_dist,
+    model_loss,
+    est_loss,
+    all_reduce,
+    sync,
+    barrier,
+)
 
 
 def main():
@@ -61,26 +69,9 @@ def main():
     is_cuda = torch.cuda.is_available()
 
     # Distributed Data Parallel init
-    ddp = int(os.environ.get("RANK", -1)) != -1
-    if ddp:
-        assert is_cuda, "Need gpu for ddp training."
-        dist.init_process_group("nccl")
-        rank = int(os.environ["RANK"])
-        local_rank = int(os.environ["LOCAL_RANK"])
-        world_size = int(os.environ["WORLD_SIZE"])
-        device = f"cuda:{local_rank}"
-        device_type = "cuda"
-        master_process = rank == 0
-        torch.cuda.set_device(device)
-    else:
-        rank = 0
-        local_rank = 0
-        world_size = 1
-        device = f"cuda:{local_rank}" if is_cuda else "cpu"
-        device_type = "cuda" if is_cuda else "cpu"
-        master_process = True
-        if is_cuda:
-            torch.cuda.set_device(device)
+    rank, local_rank, world_size, device, device_type, ddp, master_process = dist_init(
+        is_cuda
+    )
 
     # model init
     set_seed(seed + rank)
@@ -91,9 +82,10 @@ def main():
         num_heads=8,
         n_layers=8,
         inter_dim=256 + 128,
+        window_size=256,
         # attention
         mla=True,
-        kv_lora_rank=64,
+        kv_lora_rank=128,
         qk_rope_dim=64,
         qk_nope_dim=128,
         v_dim=128,
@@ -104,7 +96,12 @@ def main():
         atten_dropout=0.1,
         ffn_dropout=0.1,
         embedding_dropout=0.1,
-        atten_types=[AttentionMask.Global],
+        atten_types=[
+            AttentionMask.Global,
+            AttentionMask.Local,
+            AttentionMask.Local,
+            AttentionMask.Local,
+        ],
     )
 
     ## model flops
@@ -204,41 +201,32 @@ def main():
                 use_autocast,
                 dtype,
             )
-            if ddp:
-                dist.all_reduce(e_loss, op=dist.ReduceOp.AVG)
+            all_reduce(e_loss, rop.AVG, ddp)
             if master_process:
                 writer.add_scalar("loss/val", e_loss, val_i)
             val_i += 1
             print_master(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
-        if is_cuda:
-            torch.cuda.synchronize()
+        sync(is_cuda)
         # ------- Train -------
         for grad_i in range(grad_ecum):
             no_sync_enable = grad_i < grad_ecum - 1
             if no_sync_enable and ddp:
                 with model.no_sync():
-                    with torch.autocast(
-                        device_type=device_type,
-                        dtype=dtype,
-                        enabled=is_cuda and use_autocast,
-                    ):
-                        _, loss = model.forward(x, y)
+                    loss = model_loss(
+                        model, x, y, dtype, device_type, is_cuda, use_autocast
+                    )
                     loss = loss / grad_ecum
                     scaler.scale(loss).backward()
             else:
-                with torch.autocast(
-                    device_type=device_type,
-                    dtype=dtype,
-                    enabled=is_cuda and use_autocast,
-                ):
-                    _, loss = model.forward(x, y)
+                loss = model_loss(
+                    model, x, y, dtype, device_type, is_cuda, use_autocast
+                )
                 loss = loss / grad_ecum
                 scaler.scale(loss).backward()
             x, y = next(train_data_iter)
             x, y = x.to(device), y.to(device)
             ploss += loss.detach()
-        if ddp:
-            dist.all_reduce(ploss, op=dist.ReduceOp.AVG)
+        all_reduce(ploss, rop.AVG, ddp)
 
         scaler.unscale_(optim)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -246,8 +234,7 @@ def main():
         scaler.update()
         optim.zero_grad()
 
-        if is_cuda:
-            torch.cuda.synchronize()
+        sync(is_cuda)
 
         t1 = time()
         dt = t1 - t0
@@ -276,6 +263,8 @@ def main():
             save(model_conf, save_file_name, "model_config.pt")
             save(data_state, save_file_name, "training_info.pt")
             print_master("saved checkpoint")
+
+        barrier(ddp)
         if i % save_rate == 0 or i == steps:
             print(f"rank:{rank} saving dataset state dicts...")
             dataset_state = {
@@ -284,8 +273,7 @@ def main():
             }
             save(dataset_state, save_file_name, f"dataset_info_rank{rank}.pt")
             print(f"rank:{rank} saved dataset state dicts")
-    if ddp:
-        dist.destroy_process_group()
+    kill_dist(ddp)
 
 
 if __name__ == "__main__":

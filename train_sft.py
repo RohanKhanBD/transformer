@@ -1,9 +1,7 @@
-import os
-
 import torch
-import torch.distributed as dist
 
 from torch import GradScaler
+from torch.distributed import ReduceOp as rop
 from torchdata.stateful_dataloader import StatefulDataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -12,9 +10,19 @@ from time import time
 from tokenizer import Tokenizer
 from model import TransformerLM
 
-from utils import TextDataset, ModelConfig, save, load, est_loss, get_lr, print_master
+from utils import ModelConfig, save, load, get_lr, print_master
+from data import TextDataset
 from config_args import sft_train_args
 from flops import transformer_flops
+from training import (
+    dist_init,
+    kill_dist,
+    model_loss,
+    est_loss,
+    all_reduce,
+    sync,
+    barrier,
+)
 
 
 def main():
@@ -44,26 +52,9 @@ def main():
     is_cuda = torch.cuda.is_available()
 
     # init multi-gpu training
-    ddp = int(os.environ.get("RANK", -1)) != -1
-    if ddp:
-        assert is_cuda, "Need gpu for ddp training."
-        dist.init_process_group("nccl")
-        rank = int(os.environ["RANK"])
-        local_rank = int(os.environ["LOCAL_RANK"])
-        world_size = int(os.environ["WORLD_SIZE"])
-        device = f"cuda:{local_rank}"
-        device_type = "cuda"
-        master_process = rank == 0
-        torch.cuda.set_device(device)
-    else:
-        rank = 0
-        local_rank = 0
-        world_size = 1
-        device = f"cuda:{local_rank}" if is_cuda else "cpu"
-        device_type = "cuda" if is_cuda else "cpu"
-        master_process = True
-        if is_cuda:
-            torch.cuda.set_device(device)
+    rank, local_rank, world_size, device, device_type, ddp, master_process = dist_init(
+        is_cuda
+    )
 
     # loading tokenizer for the vocab_size
     tok = Tokenizer()
@@ -161,41 +152,32 @@ def main():
                 use_autocast,
                 dtype,
             )
-            if ddp:
-                dist.all_reduce(e_loss, dist.ReduceOp.AVG)
+            all_reduce(e_loss, rop.AVG, ddp)
             print_master(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
 
         # sync after eval
-        if is_cuda:
-            torch.cuda.synchronize()
+        sync(is_cuda)
 
         # Train
         for grad_i in range(grad_accum):
             no_sync_enable = grad_i < grad_accum - 1
             if no_sync_enable and ddp:
                 with model.no_sync():
-                    with torch.autocast(
-                        device_type=device_type,
-                        dtype=dtype,
-                        enabled=is_cuda and use_autocast,
-                    ):
-                        _, loss = model.forward(x, y)
+                    loss = model_loss(
+                        model, x, y, dtype, device_type, is_cuda, use_autocast
+                    )
                     loss = loss / grad_accum
                     scaler.scale(loss).backward()
             else:
-                with torch.autocast(
-                    device_type=device_type,
-                    dtype=dtype,
-                    enabled=is_cuda and use_autocast,
-                ):
-                    _, loss = model.forward(x, y)
+                loss = model_loss(
+                    model, x, y, dtype, device_type, is_cuda, use_autocast
+                )
                 loss = loss / grad_accum
                 scaler.scale(loss).backward()
             x, y = next(train_data_iter)
             x, y = x.to(device), y.to(device)
             ploss += loss.detach()
-        if ddp:
-            dist.all_reduce(ploss, dist.ReduceOp.AVG)
+        all_reduce(ploss, rop.AVG, ddp)
 
         # optim update
         scaler.unscale_(optim)
@@ -205,8 +187,7 @@ def main():
         optim.zero_grad()
 
         # sync after train
-        if is_cuda:
-            torch.cuda.synchronize()
+        sync(is_cuda)
 
         t1 = time()
         dt = t1 - t0
@@ -224,10 +205,10 @@ def main():
             save(checkpoint, f"{save_file_name}_inst")
             save(model_conf, f"{save_file_name}_inst", "model_config.pt")
             print_master("saved checkpoint")
+        barrier(ddp)
 
     # end dist
-    if ddp:
-        dist.destroy_process_group()
+    kill_dist(ddp)
 
 
 if __name__ == "__main__":
