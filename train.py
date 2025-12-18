@@ -82,6 +82,7 @@ def main():
         num_heads=8,
         n_layers=8,
         inter_dim=256 + 128,
+        window_size=256,
         # attention
         mla=True,
         kv_lora_rank=128,
