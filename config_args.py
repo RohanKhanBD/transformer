@@ -89,7 +89,7 @@ def sft_args():
     )
     parser.add_argument(
         "--load_mistral_tokenizer",
-        action="store_ture",
+        action="store_true",
         help="Flag for using mistral nemo tokenizer.",
     )
     args = parser.parse_args()
