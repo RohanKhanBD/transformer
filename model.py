@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from tqdm import tqdm
+from muon import Muon
 from math import sqrt
 from torch.nn import functional as F
 from utils import AttentionMask, ModelConfig, top_p
@@ -633,22 +634,32 @@ class TransformerLM(nn.Module):
 
     def get_optimizer(
         self,
-        lr: float = 1e-3,
+        muon_lr: float = 0.02,
+        adam_lr: float = 1e-3,
+        momentum: float = 0.95,
         weight_decay: float = 0.1,
         betas=(0.9, 0.97),
         fused: bool = False,
     ):
-        param_dict = {pn: p for pn, p in self.named_parameters()}
-        param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
-
-        decay_params = [p for _, p in param_dict.items() if p.dim() >= 2]
-        no_decay_params = [p for _, p in param_dict.items() if p.dim() < 2]
-
-        print(f"decay_params:{len(decay_params)}")
-        print(f"no_decay_params:{len(no_decay_params)}")
-
-        groups = [
-            {"params": decay_params, "weight_decay": weight_decay},
-            {"params": no_decay_params, "weight_decay": 0.0},
+        hidden_matrix_param = [
+            p for n, p in self.named_parameters() if p.ndim >= 2 and "tokemb" not in n
         ]
-        return torch.optim.AdamW(groups, lr=lr, betas=betas, fused=fused)
+        embed_param = [p for n, p in self.named_parameters() if "tokemb" in n]
+        scaler_param = [p for n, p in self.named_parameters() if p.ndim < 2]
+        head_param = [self.logits.weight]
+
+        adamw = torch.optim.AdamW(
+            embed_param + scaler_param,
+            head_param,
+            lr=adam_lr,
+            betas=betas,
+            weight_decay=0,
+            fused=fused,
+        )
+        muon = Muon(
+            hidden_matrix_param,
+            lr=muon_lr,
+            weight_decay=weight_decay,
+            momentum=momentum,
+        )
+        return [adamw, muon]
