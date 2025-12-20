@@ -1,5 +1,6 @@
 import torch
 from torch import optim
+from torch.optim.optimizer import ParamsT
 
 
 def zeropower_via_newtonschulz5(G: torch.Tensor, steps: int):
@@ -36,10 +37,10 @@ def muon_update(
 class Muon(optim.Optimizer):
     def __init__(
         self,
-        params,
+        params: ParamsT,
         lr=0.02,
         weight_decay=0.1,
-        momentum=0.5,
+        momentum=0.95,
         ns_steps: int = 5,
         nesterov: bool = True,
     ):
