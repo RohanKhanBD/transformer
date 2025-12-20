@@ -641,12 +641,13 @@ class TransformerLM(nn.Module):
         betas=(0.9, 0.97),
         fused: bool = False,
     ):
-        hidden_matrix_param = [
-            p for n, p in self.named_parameters() if p.ndim >= 2 and "tokemb" not in n
-        ]
-        embed_param = [p for n, p in self.named_parameters() if "tokemb" in n]
-        scaler_param = [p for n, p in self.named_parameters() if p.ndim < 2]
-        head_param = [self.logits.weight]
+        param_dict = {pn: p for pn, p in self.named_parameters()}
+        hidden_matrix_param = {
+            p for n, p in param_dict.items() if p.ndim >= 2 and "tokemb" not in n
+        }
+        embed_param = [p for n, p in param_dict.items() if "tokemb" in n]
+        scaler_param = [p for _, p in param_dict.items() if p.ndim < 2]
+        head_param = [p for n, p in param_dict.items() if "logits" in n]
 
         adamw = torch.optim.AdamW(
             embed_param + scaler_param + head_param,
