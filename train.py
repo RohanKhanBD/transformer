@@ -263,7 +263,7 @@ def main():
         flops_achived = flops_per_token * (batch_size * grad_ecum * world_size) / dt
         mfu = (flops_achived / promissed_flops) * 100
         print_master(
-            f"step: {i}/{steps} | muon_lr: {muon_lr:.8f} | adamw_lr: {adamw_lr:.8f} | loss: {ploss:.8f} | adamw_norm: {norms[0].item():.8f} | muon_norm: {norms[1].item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
+            f"step: {i}/{steps} | loss: {ploss:.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
         )
         if master_process:
             writer.add_scalar("loss/train", ploss, i)
