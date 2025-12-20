@@ -635,7 +635,7 @@ class TransformerLM(nn.Module):
     def get_optimizer(
         self,
         muon_lr: float = 0.02,
-        adam_lr: float = 1e-3,
+        adamw_lr: float = 1e-3,
         momentum: float = 0.95,
         weight_decay: float = 0.1,
         betas=(0.9, 0.97),
@@ -651,7 +651,7 @@ class TransformerLM(nn.Module):
 
         adamw = torch.optim.AdamW(
             embed_param + scaler_param + head_param,
-            lr=adam_lr,
+            lr=adamw_lr,
             betas=betas,
             weight_decay=0,
             fused=fused,
