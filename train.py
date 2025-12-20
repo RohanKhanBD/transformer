@@ -19,6 +19,7 @@ from utils import (
     get_lr,
     set_seed,
     print_master,
+    muon_momentum,
 )
 
 from data import TextDataset
@@ -41,11 +42,17 @@ def main():
     eval_rate = file_args.eval_rate
     eval_steps = file_args.eval_steps
     save_rate = file_args.save_rate
-    lr = file_args.lr
-    min_lr = file_args.min_lr
+    muon_lr = file_args.muon_lr
+    adamw_lr = file_args.adamw_lr
+    momentum = file_args.momentum
+    min_muon_lr = file_args.min_muon_lr
+    min_adamw_lr = file_args.min_adamw_lr
+    min_momentum = file_args.min_momentum
     weight_decay = file_args.weight_decay
     betas = (file_args.beta1, file_args.beta2)
     warm_up = file_args.warm_up
+    muon_warm_up = file_args.muon_warm_up
+    muon_cooldown = file_args.muon_cooldown
     total_batch_size = file_args.total_batch_size
     batch_size = file_args.batch_size
     seed = file_args.seed
@@ -144,7 +151,9 @@ def main():
     print_master(model_params)
     print_master(f"Number of devices:{world_size}")
     # optimizer
-    optim = raw_model.get_optimizer(lr, weight_decay, betas, fused=is_cuda)
+    optim = raw_model.get_optimizer(
+        muon_lr, adamw_lr, momentum, weight_decay, betas, fused=is_cuda
+    )
     if os.path.exists(save_file_name):
         optim.load_state_dict(checkpoint["optim"])
 
@@ -188,9 +197,16 @@ def main():
 
     for i in range(train_i, steps + 1):
         ploss = 0.0
-        n_lr = get_lr(i, steps, lr, min_lr, warm_up)
-        for param_group in optim.param_groups:
-            param_group["lr"] = n_lr
+        n_muon_lr = get_lr(i, steps, muon_lr, min_muon_lr, warm_up)
+        n_adamw_lr = get_lr(i, steps, adamw_lr, min_adamw_lr, warm_up)
+        n_momentum = muon_momentum(
+            i, steps, muon_warm_up, muon_cooldown, min_momentum, momentum
+        )
+        for param_group in optim[0].param_groups:
+            param_group["lr"] = n_adamw_lr
+        for param_group in optim[1].param_groups:
+            param_group["lr"] = n_muon_lr
+            param_group["momentum"] = n_momentum
         # ------- Eval -------
         if i % eval_rate == 0 or i == steps:
             e_loss = est_loss(
@@ -245,11 +261,13 @@ def main():
         flops_achived = flops_per_token * (batch_size * grad_ecum * world_size) / dt
         mfu = (flops_achived / promissed_flops) * 100
         print_master(
-            f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
+            f"step: {i}/{steps} | muon_lr: {muon_lr:.8f} | adamw_lr: {adamw_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
         )
         if master_process:
             writer.add_scalar("loss/train", ploss, i)
-            writer.add_scalar("model/lr", n_lr, i)
+            writer.add_scalar("model/muon/lr", n_muon_lr, i)
+            writer.add_scalar("model/adamw/lr", n_adamw_lr, i)
+            writer.add_scalar("model/muon/momentum", n_momentum, i)
             writer.add_scalar("model/norm", norm.item(), i)
             writer.flush()
         # ------- Save -------
