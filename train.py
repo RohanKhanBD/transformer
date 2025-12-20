@@ -245,12 +245,14 @@ def main():
             x, y = x.to(device), y.to(device)
             ploss += loss.detach()
         all_reduce(ploss, rop.AVG, ddp)
-
-        scaler.unscale_(optim)
-        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        scaler.step(optim)
-        scaler.update()
-        optim.zero_grad()
+        norms = []
+        for opt in optim:
+            scaler.unscale_(opt)
+            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            norms.append(norm)
+            scaler.step(opt)
+            scaler.update()
+            opt.zero_grad()
 
         sync(is_cuda)
 
@@ -261,14 +263,15 @@ def main():
         flops_achived = flops_per_token * (batch_size * grad_ecum * world_size) / dt
         mfu = (flops_achived / promissed_flops) * 100
         print_master(
-            f"step: {i}/{steps} | muon_lr: {muon_lr:.8f} | adamw_lr: {adamw_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
+            f"step: {i}/{steps} | muon_lr: {muon_lr:.8f} | adamw_lr: {adamw_lr:.8f} | loss: {ploss:.8f} | adamw_norm: {norms[0].item():.8f} | muon_norm: {norms[1].item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
         )
         if master_process:
             writer.add_scalar("loss/train", ploss, i)
             writer.add_scalar("model/muon/lr", n_muon_lr, i)
             writer.add_scalar("model/adamw/lr", n_adamw_lr, i)
             writer.add_scalar("model/muon/momentum", n_momentum, i)
-            writer.add_scalar("model/norm", norm.item(), i)
+            writer.add_scalar("model/adamw_norm", norm[0].item(), i)
+            writer.add_scalar("model/muon_norm", norm[1].item(), i)
             writer.flush()
         # ------- Save -------
         if (i % save_rate == 0 or i == steps) and master_process:
