@@ -270,8 +270,8 @@ def main():
             writer.add_scalar("model/muon/lr", n_muon_lr, i)
             writer.add_scalar("model/adamw/lr", n_adamw_lr, i)
             writer.add_scalar("model/muon/momentum", n_momentum, i)
-            writer.add_scalar("model/adamw_norm", norm[0].item(), i)
-            writer.add_scalar("model/muon_norm", norm[1].item(), i)
+            writer.add_scalar("model/adamw_norm", norms[0].item(), i)
+            writer.add_scalar("model/muon_norm", norms[1].item(), i)
             writer.flush()
         # ------- Save -------
         if (i % save_rate == 0 or i == steps) and master_process:
