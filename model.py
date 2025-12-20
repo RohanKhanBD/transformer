@@ -649,8 +649,7 @@ class TransformerLM(nn.Module):
         head_param = [self.logits.weight]
 
         adamw = torch.optim.AdamW(
-            embed_param + scaler_param,
-            head_param,
+            embed_param + scaler_param + head_param,
             lr=adam_lr,
             betas=betas,
             weight_decay=0,
