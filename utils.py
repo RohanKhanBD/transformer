@@ -15,6 +15,26 @@ def get_lr(iter: int, steps: int, lr: float, min_lr: float, warm_up: int):
     return min_lr + coff * (lr - min_lr)
 
 
+def muon_momentum(
+    iter: int,
+    steps: int,
+    muon_warm_up: int = 300,
+    muon_cooldown: int = 50,
+    min_momentum: int = 0.85,
+    max_momentum: int = 0.95,
+):
+    momentum_cd_start = steps - muon_cooldown
+    if iter < muon_warm_up:
+        frac = iter / muon_warm_up
+        momentum = min_momentum + frac * (max_momentum - min_momentum)
+    elif iter > momentum_cd_start:
+        frac = (iter - momentum_cd_start) / muon_cooldown
+        momentum = max_momentum - frac * (max_momentum - min_momentum)
+    else:
+        momentum = max_momentum
+    return momentum
+
+
 def set_seed(seed: int):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
