@@ -88,7 +88,7 @@ def main():
         embedding_dim=512,
         num_heads=8,
         n_layers=8,
-        inter_dim=256 + 128,
+        inter_dim=512 * 4,
         window_size=256,
         # attention
         kv_heads=4,
@@ -130,7 +130,7 @@ def main():
     model = TransformerLM(model_conf, tok.vocab_size)
     model.to(device)
     model: TransformerLM = torch.compile(
-        model, backend=backend, disable=not compile_model
+        model, backend=backend, disable=not compile_model, fullgraph=True, dynamic=False
     )
     if os.path.exists(save_file_name):
         checkpoint = load(save_file_name)

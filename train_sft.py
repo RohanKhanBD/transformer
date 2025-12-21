@@ -99,7 +99,7 @@ def main():
     model = TransformerLM(model_conf, tok.vocab_size)
     model.to(device)
     model: TransformerLM = torch.compile(
-        model, backend=backend, disable=not compile_model
+        model, backend=backend, disable=not compile_model, fullgraph=True, dynamic=False
     )
     model.load_state_dict(checkpoint["model"])
 
