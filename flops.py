@@ -34,14 +34,13 @@ def attention_gqa_flops(
     kv_heads: int,
 ):
     head_dim = embedding_dim // num_heads
-    n_rep = num_heads // kv_heads
     q_proj = 2 * maxlen * embedding_dim * (num_heads * head_dim)
-    k_proj = 2 * maxlen * embedding_dim * (kv_heads * num_heads)
+    k_proj = 2 * maxlen * embedding_dim * (kv_heads * head_dim)
     v_proj = k_proj
-    qk = 2 * num_heads * maxlen * maxlen * n_rep
+    qk = 2 * num_heads * maxlen * maxlen * head_dim
     softmax = 3 * num_heads * maxlen * maxlen
-    attn_v = 2 * num_heads * maxlen * maxlen * n_rep
-    out_proj = 2 * maxlen * (num_heads * n_rep) * embedding_dim
+    attn_v = 2 * num_heads * maxlen * maxlen * head_dim
+    out_proj = 2 * maxlen * (num_heads * head_dim) * embedding_dim
     return q_proj + k_proj + v_proj + qk + softmax + attn_v + out_proj
 
 
