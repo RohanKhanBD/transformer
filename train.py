@@ -91,11 +91,7 @@ def main():
         inter_dim=256 + 128,
         window_size=256,
         # attention
-        mla=True,
-        kv_lora_rank=128,
-        qk_rope_dim=64,
-        qk_nope_dim=128,
-        v_dim=128,
+        kv_heads=4,
         flash=is_cuda,
         # rope
         base=100000,
