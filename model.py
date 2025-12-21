@@ -106,6 +106,9 @@ class MultiHeadAttention(nn.Module):
             conf.num_heads * self.head_dim, conf.embedding_dim, bias=conf.atten_bias
         )
 
+        self.q_norm = RMS_Norm(self.head_dim, conf.eps)
+        self.k_norm = RMS_Norm(self.head_dim, conf.eps)
+
         self.head_dp = nn.Dropout(conf.atten_dropout)
         self.atten_dp = nn.Dropout(conf.atten_dropout)
 
@@ -126,6 +129,7 @@ class MultiHeadAttention(nn.Module):
         k = k.view(B, T, self.conf.kv_heads, self.head_dim)
         v = v.view(B, T, self.conf.kv_heads, self.head_dim)
 
+        q, k = self.q_norm.forward(q), self.k_norm.forward(k)
         q = apply_rope(q, freq_cis)
         k = apply_rope(k, freq_cis)
 
