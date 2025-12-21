@@ -155,7 +155,8 @@ def main():
         muon_lr, adamw_lr, momentum, weight_decay, betas, fused=is_cuda
     )
     if os.path.exists(save_file_name):
-        optim.load_state_dict(checkpoint["optim"])
+        optim[0].load_state_dict(checkpoint["adamw"])
+        optim[1].load_state_dict(checkpoint["muon"])
 
     # dataset
     train_dataset = TextDataset(
@@ -273,7 +274,11 @@ def main():
         # ------- Save -------
         if (i % save_rate == 0 or i == steps) and master_process:
             print_master("saving checkpoint...")
-            checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
+            checkpoint = {
+                "model": raw_model.state_dict(),
+                "adamw": optim[0].state_dict(),
+                "muon": optim[1].state_dict(),
+            }
 
             data_state = {
                 "step": i + 1,

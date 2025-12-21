@@ -218,7 +218,11 @@ def main():
         )
         if (save_rate % i == 0 or i == steps) and master_process:
             print_master("saving checkpoint...")
-            checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
+            checkpoint = {
+                "model": raw_model.state_dict(),
+                "adamw": optim[0].state_dict(),
+                "muon": optim[1].state_dict(),
+            }
 
             save(checkpoint, f"{save_file_name}_inst")
             save(model_conf, f"{save_file_name}_inst", "model_config.pt")
