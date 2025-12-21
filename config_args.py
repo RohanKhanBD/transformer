@@ -173,6 +173,18 @@ def train_args():
         help="How many steps should it take for the learning rate (lr) should warm up to the max value.",
     )
     parser.add_argument(
+        "--muon_warm_up",
+        type=int,
+        default=300,
+        help="How many steps should it take for the muon momentum should warm up to the max value.",
+    )
+    parser.add_argument(
+        "--muon_cooldown",
+        type=int,
+        default=50,
+        help="How many steps should it take for the muon momentum should cooldown to the min value.",
+    )
+    parser.add_argument(
         "--total_batch_size",
         type=int,
         default=2**19,
@@ -194,13 +206,37 @@ def train_args():
         help="The top flops the training hardware can reach.",
     )
     parser.add_argument(
-        "--lr", type=float, default=3e-3, help="The learning rate (lr)."
+        "--muon_lr",
+        type=float,
+        default=0.02,
+        help="The learning rate for muon (muon_lr).",
     )
     parser.add_argument(
-        "--min_lr",
+        "--adamw_lr",
+        type=float,
+        default=3e-3,
+        help="The learning rate for adamw (adamw_lr).",
+    )
+    parser.add_argument(
+        "--momentum", type=float, default=0.95, help="The optimizer momentum"
+    )
+    parser.add_argument(
+        "--min_muon_lr",
+        type=float,
+        default=0.02 * 0.1,
+        help="The minimum muon learning rate the warm up should start from and end on.",
+    )
+    parser.add_argument(
+        "--min_adamw_lr",
         type=float,
         default=3e-3 * 0.1,
-        help="The minimum learning rate the warm up should start from and end on.",
+        help="The minimum adamw learning rate the warm up should start from and end on.",
+    )
+    parser.add_argument(
+        "--min_momentum",
+        type=float,
+        default=0.85,
+        help="The minimum muon momentum the warm up should start from and end on.",
     )
     parser.add_argument(
         "--weight_decay", type=float, default=0.1, help="The weight decay for adamw."
@@ -282,6 +318,18 @@ def sft_train_args():
         help="How many steps should it take for the learning rate (lr) should warm up to the max value.",
     )
     parser.add_argument(
+        "--muon_warm_up",
+        type=int,
+        default=300,
+        help="How many steps should it take for the muon momentum should warm up to the max value.",
+    )
+    parser.add_argument(
+        "--muon_cooldown",
+        type=int,
+        default=50,
+        help="How many steps should it take for the muon momentum should cooldown to the min value.",
+    )
+    parser.add_argument(
         "--total_batch_size",
         type=int,
         default=2**19,
@@ -300,13 +348,37 @@ def sft_train_args():
         help="The top flops the training hardware can reach.",
     )
     parser.add_argument(
-        "--lr", type=float, default=3e-3, help="The learning rate (lr)."
+        "--muon_lr",
+        type=float,
+        default=0.02,
+        help="The learning rate for muon (muon_lr).",
     )
     parser.add_argument(
-        "--min_lr",
+        "--adamw_lr",
+        type=float,
+        default=3e-3,
+        help="The learning rate for adamw (adamw_lr).",
+    )
+    parser.add_argument(
+        "--momentum", type=float, default=0.95, help="The optimizer momentum"
+    )
+    parser.add_argument(
+        "--min_muon_lr",
+        type=float,
+        default=0.02 * 0.1,
+        help="The minimum muon learning rate the warm up should start from and end on.",
+    )
+    parser.add_argument(
+        "--min_adamw_lr",
         type=float,
         default=3e-3 * 0.1,
-        help="The minimum learning rate the warm up should start from and end on.",
+        help="The minimum adamw learning rate the warm up should start from and end on.",
+    )
+    parser.add_argument(
+        "--min_momentum",
+        type=float,
+        default=0.85,
+        help="The minimum muon momentum the warm up should start from and end on.",
     )
     parser.add_argument(
         "--weight_decay", type=float, default=0.1, help="The weight decay for adamw."

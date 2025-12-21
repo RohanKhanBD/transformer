@@ -27,6 +27,24 @@ def mla_attention_flops(
     )
 
 
+def attention_gqa_flops(
+    maxlen: int,
+    embedding_dim: int,
+    num_heads: int,
+    kv_heads: int,
+):
+    head_dim = embedding_dim // num_heads
+    n_rep = num_heads // kv_heads
+    q_proj = 2 * maxlen * embedding_dim * (num_heads * head_dim)
+    k_proj = 2 * maxlen * embedding_dim * (kv_heads * num_heads)
+    v_proj = k_proj
+    qk = 2 * num_heads * maxlen * maxlen * n_rep
+    softmax = 3 * num_heads * maxlen * maxlen
+    attn_v = 2 * num_heads * maxlen * maxlen * n_rep
+    out_proj = 2 * maxlen * (num_heads * n_rep) * embedding_dim
+    return q_proj + k_proj + v_proj + qk + softmax + attn_v + out_proj
+
+
 def ffn_flops(maxlen: int, embedding_dim: int, inter_dim: int):
     return 2 * maxlen * (3 * embedding_dim * inter_dim)
 
@@ -36,14 +54,21 @@ def block_flops(
     embedding_dim: int,
     inter_dim: int,
     num_heads: int,
+    kv_heads: int,
+    use_mla: bool,
     qk_rope_dim: int,
     qk_nope_dim: int,
     kv_rank: int,
     v_dim: int,
 ):
-    return mla_attention_flops(
-        maxlen, embedding_dim, num_heads, qk_rope_dim, qk_nope_dim, kv_rank, v_dim
-    ) + ffn_flops(maxlen, embedding_dim, inter_dim)
+    return (
+        mla_attention_flops(
+            maxlen, embedding_dim, num_heads, qk_rope_dim, qk_nope_dim, kv_rank, v_dim
+        )
+        if use_mla
+        else attention_gqa_flops(maxlen, embedding_dim, num_heads, kv_heads)
+        + ffn_flops(maxlen, embedding_dim, inter_dim)
+    )
 
 
 def transformer_flops(
@@ -52,7 +77,9 @@ def transformer_flops(
     embedding_dim: int,
     inter_dim: int,
     num_heads: int,
+    kv_heads: int,
     n_layers: int,
+    use_mla: bool,
     qk_rope_dim: int,
     qk_nope_dim: int,
     kv_rank: int,
@@ -63,6 +90,8 @@ def transformer_flops(
         embedding_dim,
         inter_dim,
         num_heads,
+        kv_heads,
+        use_mla,
         qk_rope_dim,
         qk_nope_dim,
         kv_rank,
@@ -100,6 +129,15 @@ def mla_params(
     return query + compressed_kv + rms_norm + dcompressed_kv + proj
 
 
+def attention_gqa_params(embedding_dim: int, num_heads: int, kv_heads: int):
+    head_dim = embedding_dim // num_heads
+    query = embedding_dim * num_heads * head_dim
+    key = embedding_dim * num_heads * kv_heads
+    value = key
+    proj = num_heads * head_dim * embedding_dim
+    return query + key + value + proj
+
+
 def ffn_params(embedding_dim: int, inter_dim: int):
     return 3 * embedding_dim * inter_dim
 
@@ -108,6 +146,8 @@ def block_params(
     embedding_dim: int,
     inter_dim: int,
     num_heads: int,
+    kv_heads: int,
+    use_mla: bool,
     qk_rope_dim: int,
     qk_nope_dim: int,
     kv_rank: int,
@@ -116,6 +156,8 @@ def block_params(
     rms_norm = embedding_dim * 2
     return (
         mla_params(embedding_dim, num_heads, qk_rope_dim, qk_nope_dim, kv_rank, v_dim)
+        if use_mla
+        else attention_gqa_params(embedding_dim, num_heads, kv_heads)
         + ffn_params(embedding_dim, inter_dim)
         + rms_norm
     )
@@ -126,7 +168,9 @@ def transformer_params(
     embedding_dim: int,
     inter_dim: int,
     num_heads: int,
+    kv_heads: int,
     n_layers: int,
+    use_mla: bool,
     qk_rope_dim: int,
     qk_nope_dim: int,
     kv_rank: int,
@@ -134,7 +178,15 @@ def transformer_params(
 ):
     tokemb = embedding_dim * vocab_size
     blocks = n_layers * block_params(
-        embedding_dim, inter_dim, num_heads, qk_rope_dim, qk_nope_dim, kv_rank, v_dim
+        embedding_dim,
+        inter_dim,
+        num_heads,
+        kv_heads,
+        use_mla,
+        qk_rope_dim,
+        qk_nope_dim,
+        kv_rank,
+        v_dim,
     )
     rms_norm = embedding_dim
     return tokemb + blocks + rms_norm

@@ -10,7 +10,7 @@ from time import time
 from tokenizer import Tokenizer
 from model import TransformerLM
 
-from utils import ModelConfig, save, load, get_lr, print_master
+from utils import ModelConfig, save, load, get_lr, print_master, muon_momentum
 from data import TextDataset
 from config_args import sft_train_args
 from flops import transformer_flops
@@ -31,11 +31,17 @@ def main():
     eval_rate = file_args.eval_rate
     eval_steps = file_args.eval_steps
     save_rate = file_args.save_rate
-    lr = file_args.lr
-    min_lr = file_args.min_lr
+    muon_lr = file_args.muon_lr
+    adamw_lr = file_args.adamw_lr
+    momentum = file_args.momentum
+    min_muon_lr = file_args.min_muon_lr
+    min_adamw_lr = file_args.min_adamw_lr
+    min_momentum = file_args.min_momentum
     weight_decay = file_args.weight_decay
     betas = (file_args.beta1, file_args.beta2)
     warm_up = file_args.warm_up
+    muon_warm_up = file_args.muon_warm_up
+    muon_cooldown = file_args.muon_cooldown
     total_batch_size = file_args.total_batch_size
     batch_size = file_args.batch_size
     compile_model = file_args.compile_model
@@ -74,7 +80,9 @@ def main():
         embedding_dim=model_conf.embedding_dim,
         inter_dim=model_conf.inter_dim,
         num_heads=model_conf.num_heads,
+        kv_heads=model_conf.kv_heads,
         n_layers=model_conf.n_layers,
+        use_mla=model_conf.mla,
         qk_rope_dim=model_conf.qk_rope_dim,
         qk_nope_dim=model_conf.qk_nope_dim,
         kv_rank=model_conf.kv_lora_rank,
@@ -108,7 +116,9 @@ def main():
     print_master(f"Number of devices:{world_size}")
 
     # making the optimizer
-    optim = raw_model.get_optimizer(lr, weight_decay, betas)
+    optim = raw_model.get_optimizer(
+        muon_lr, adamw_lr, momentum, weight_decay, betas, fused=is_cuda
+    )
 
     # datasets
     train_dataset = TextDataset(
@@ -136,9 +146,16 @@ def main():
     # step loop
     for i in range(1, steps + 1):
         ploss = 0.0
-        n_lr = get_lr(i, steps, lr, min_lr, warm_up)
-        for param_group in optim.param_groups:
-            param_group["lr"] = n_lr
+        n_muon_lr = get_lr(i, steps, muon_lr, min_muon_lr, warm_up)
+        n_adamw_lr = get_lr(i, steps, adamw_lr, min_adamw_lr, warm_up)
+        n_momentum = muon_momentum(
+            i, steps, muon_warm_up, muon_cooldown, min_momentum, momentum
+        )
+        for param_group in optim[0].param_groups:
+            param_group["lr"] = n_adamw_lr
+        for param_group in optim[1].param_groups:
+            param_group["lr"] = n_muon_lr
+            param_group["momentum"] = n_momentum
 
         # Eval
         if i % eval_rate == 0 or i == steps:
@@ -180,11 +197,12 @@ def main():
         all_reduce(ploss, rop.AVG, ddp)
 
         # optim update
-        scaler.unscale_(optim)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        scaler.step(optim)
-        scaler.update()
-        optim.zero_grad()
+        for opt in optim:
+            scaler.unscale_(opt)
+            scaler.step(opt)
+            scaler.update()
+            opt.zero_grad()
 
         # sync after train
         sync(is_cuda)
@@ -196,7 +214,7 @@ def main():
         flops_achived = flops_per_token * (batch_size * grad_accum * world_size) / dt
         mfu = (flops_achived / promissed_flops) * 100
         print_master(
-            f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
+            f"step: {i}/{steps} | loss: {ploss:.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
         )
         if (save_rate % i == 0 or i == steps) and master_process:
             print_master("saving checkpoint...")
