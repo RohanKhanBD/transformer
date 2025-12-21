@@ -134,7 +134,8 @@ def attention_gqa_params(embedding_dim: int, num_heads: int, kv_heads: int):
     key = embedding_dim * num_heads * kv_heads
     value = key
     proj = num_heads * head_dim * embedding_dim
-    return query + key + value + proj
+    q_norm = k_norm = head_dim
+    return query + key + value + proj + q_norm + k_norm
 
 
 def ffn_params(embedding_dim: int, inter_dim: int):
