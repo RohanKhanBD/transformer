@@ -267,12 +267,11 @@ class FFN(nn.Module):
     def __init__(self, conf: ModelConfig):
         super().__init__()
         self.ln1 = nn.Linear(conf.embedding_dim, conf.inter_dim, bias=conf.ffn_bias)
-        self.ln2 = nn.Linear(conf.embedding_dim, conf.inter_dim, bias=conf.ffn_bias)
         self.proj = nn.Linear(conf.inter_dim, conf.embedding_dim, bias=conf.ffn_bias)
         self.dropout = nn.Dropout(conf.ffn_dropout)
 
     def forward(self, x: torch.Tensor):
-        x = F.silu(self.ln1.forward(x)) * self.ln2.forward(x)
+        x = F.relu(self.ln1.forward(x)).square()
         x = self.dropout.forward(self.proj.forward(x))
         return x
 
