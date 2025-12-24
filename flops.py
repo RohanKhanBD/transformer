@@ -45,7 +45,7 @@ def attention_gqa_flops(
 
 
 def ffn_flops(maxlen: int, embedding_dim: int, inter_dim: int):
-    return 2 * maxlen * (3 * embedding_dim * inter_dim)
+    return 2 * maxlen * (2 * embedding_dim * inter_dim)
 
 
 def block_flops(
@@ -139,7 +139,7 @@ def attention_gqa_params(embedding_dim: int, num_heads: int, kv_heads: int):
 
 
 def ffn_params(embedding_dim: int, inter_dim: int):
-    return 3 * embedding_dim * inter_dim
+    return 2 * embedding_dim * inter_dim
 
 
 def block_params(
