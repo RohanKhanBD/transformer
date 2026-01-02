@@ -5,91 +5,6 @@ from math import pi, cos
 from dataclasses import dataclass
 
 
-class TextDataset(torch.utils.data.IterableDataset):
-    def __init__(
-        self, shard_file: str, maxlen: int, shard: str, rank: int, word_size: int
-    ):
-        super().__init__()
-        self.rank = rank
-        self.world_size = word_size
-
-        self.shard_file = shard_file
-        shards = os.listdir(shard_file)
-        shards = sorted(shards)
-        shards = [i for i in shards if shard in i]
-        self.shards = shards
-        self.shard_i = 0
-
-        self.maxlen = maxlen
-
-        self.data = load(
-            self.shard_file, self.shards[self.shard_i], weights_only=False
-        ).astype("int32")
-
-        self.idx = rank * maxlen
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        start = self.idx
-        end = start + self.maxlen
-
-        token = self.data[start : end + 1]
-        if not isinstance(token, torch.Tensor):
-            token = torch.tensor(token, dtype=torch.long)
-
-        x = token[:-1]
-        y = token[1:]
-
-        self.idx += self.maxlen * self.world_size
-        if self.idx + (self.maxlen * self.world_size + 1) > len(self.data):
-            self.idx = self.rank * self.maxlen
-            self.shard_i = (self.shard_i + 1) % len(self.shards)
-            self.data = load(
-                self.shard_file, self.shards[self.shard_i], weights_only=False
-            ).astype("int32")
-
-        return x, y
-
-    def state_dict(self):
-        return {"shard_i": self.shard_i, "idx": self.idx}
-
-    def load_state_dict(self, state_dict: dict):
-        self.shard_i = state_dict["shard_i"]
-        self.idx = state_dict["idx"]
-        self.data = load(
-            self.shard_file, self.shards[self.shard_i], weights_only=False
-        ).astype("int32")
-
-
-@torch.no_grad()
-def est_loss(
-    model: torch.nn.Module,
-    val_iter,
-    eval_steps: int,
-    device: str,
-    device_type: str,
-    is_cuda: bool,
-    use_autocast: bool,
-    dtype: torch.dtype,
-):
-    model.eval()
-    losses = torch.zeros(eval_steps, device=device)
-    for i in range(eval_steps):
-        x, y = next(val_iter)
-        x, y = x.to(device), y.to(device)
-        with torch.autocast(
-            device_type=device_type,
-            dtype=dtype,
-            enabled=is_cuda and use_autocast,
-        ):
-            _, loss = model.forward(x, y)
-        losses[i] = loss.item()
-    model.train()
-    return losses.mean()
-
-
 def get_lr(iter: int, steps: int, lr: float, min_lr: float, warm_up: int):
     if iter < warm_up:
         return lr * iter / warm_up
@@ -98,6 +13,26 @@ def get_lr(iter: int, steps: int, lr: float, min_lr: float, warm_up: int):
     d_ratio = (iter - warm_up) / (steps - warm_up)
     coff = 0.5 * (1 + cos(pi * d_ratio))
     return min_lr + coff * (lr - min_lr)
+
+
+def muon_momentum(
+    iter: int,
+    steps: int,
+    muon_warm_up: int = 300,
+    muon_cooldown: int = 50,
+    min_momentum: int = 0.85,
+    max_momentum: int = 0.95,
+):
+    momentum_cd_start = steps - muon_cooldown
+    if iter < muon_warm_up:
+        frac = iter / muon_warm_up
+        momentum = min_momentum + frac * (max_momentum - min_momentum)
+    elif iter > momentum_cd_start:
+        frac = (iter - momentum_cd_start) / muon_cooldown
+        momentum = max_momentum - frac * (max_momentum - min_momentum)
+    else:
+        momentum = max_momentum
+    return momentum
 
 
 def set_seed(seed: int):

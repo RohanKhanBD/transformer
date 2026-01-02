@@ -1,9 +1,7 @@
-import os
-
 import torch
-import torch.distributed as dist
 
 from torch import GradScaler
+from torch.distributed import ReduceOp as rop
 from torchdata.stateful_dataloader import StatefulDataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -12,9 +10,19 @@ from time import time
 from tokenizer import Tokenizer
 from model import TransformerLM
 
-from utils import TextDataset, ModelConfig, save, load, est_loss, get_lr, print_master
+from utils import ModelConfig, save, load, get_lr, print_master, muon_momentum
+from data import TextDataset
 from config_args import sft_train_args
 from flops import transformer_flops
+from training import (
+    dist_init,
+    kill_dist,
+    model_loss,
+    est_loss,
+    all_reduce,
+    sync,
+    barrier,
+)
 
 
 def main():
@@ -23,11 +31,17 @@ def main():
     eval_rate = file_args.eval_rate
     eval_steps = file_args.eval_steps
     save_rate = file_args.save_rate
-    lr = file_args.lr
-    min_lr = file_args.min_lr
+    muon_lr = file_args.muon_lr
+    adamw_lr = file_args.adamw_lr
+    momentum = file_args.momentum
+    min_muon_lr = file_args.min_muon_lr
+    min_adamw_lr = file_args.min_adamw_lr
+    min_momentum = file_args.min_momentum
     weight_decay = file_args.weight_decay
     betas = (file_args.beta1, file_args.beta2)
     warm_up = file_args.warm_up
+    muon_warm_up = file_args.muon_warm_up
+    muon_cooldown = file_args.muon_cooldown
     total_batch_size = file_args.total_batch_size
     batch_size = file_args.batch_size
     compile_model = file_args.compile_model
@@ -44,26 +58,9 @@ def main():
     is_cuda = torch.cuda.is_available()
 
     # init multi-gpu training
-    ddp = int(os.environ.get("RANK", -1)) != -1
-    if ddp:
-        assert is_cuda, "Need gpu for ddp training."
-        dist.init_process_group("nccl")
-        rank = int(os.environ["RANK"])
-        local_rank = int(os.environ["LOCAL_RANK"])
-        world_size = int(os.environ["WORLD_SIZE"])
-        device = f"cuda:{local_rank}"
-        device_type = "cuda"
-        master_process = rank == 0
-        torch.cuda.set_device(device)
-    else:
-        rank = 0
-        local_rank = 0
-        world_size = 1
-        device = f"cuda:{local_rank}" if is_cuda else "cpu"
-        device_type = "cuda" if is_cuda else "cpu"
-        master_process = True
-        if is_cuda:
-            torch.cuda.set_device(device)
+    rank, local_rank, world_size, device, device_type, ddp, master_process = dist_init(
+        is_cuda
+    )
 
     # loading tokenizer for the vocab_size
     tok = Tokenizer()
@@ -83,7 +80,9 @@ def main():
         embedding_dim=model_conf.embedding_dim,
         inter_dim=model_conf.inter_dim,
         num_heads=model_conf.num_heads,
+        kv_heads=model_conf.kv_heads,
         n_layers=model_conf.n_layers,
+        use_mla=model_conf.mla,
         qk_rope_dim=model_conf.qk_rope_dim,
         qk_nope_dim=model_conf.qk_nope_dim,
         kv_rank=model_conf.kv_lora_rank,
@@ -100,7 +99,7 @@ def main():
     model = TransformerLM(model_conf, tok.vocab_size)
     model.to(device)
     model: TransformerLM = torch.compile(
-        model, backend=backend, disable=not compile_model
+        model, backend=backend, disable=not compile_model, fullgraph=True, dynamic=False
     )
     model.load_state_dict(checkpoint["model"])
 
@@ -117,7 +116,9 @@ def main():
     print_master(f"Number of devices:{world_size}")
 
     # making the optimizer
-    optim = raw_model.get_optimizer(lr, weight_decay, betas)
+    optim = raw_model.get_optimizer(
+        muon_lr, adamw_lr, momentum, weight_decay, betas, fused=is_cuda
+    )
 
     # datasets
     train_dataset = TextDataset(
@@ -145,9 +146,16 @@ def main():
     # step loop
     for i in range(1, steps + 1):
         ploss = 0.0
-        n_lr = get_lr(i, steps, lr, min_lr, warm_up)
-        for param_group in optim.param_groups:
-            param_group["lr"] = n_lr
+        n_muon_lr = get_lr(i, steps, muon_lr, min_muon_lr, warm_up)
+        n_adamw_lr = get_lr(i, steps, adamw_lr, min_adamw_lr, warm_up)
+        n_momentum = muon_momentum(
+            i, steps, muon_warm_up, muon_cooldown, min_momentum, momentum
+        )
+        for param_group in optim[0].param_groups:
+            param_group["lr"] = n_adamw_lr
+        for param_group in optim[1].param_groups:
+            param_group["lr"] = n_muon_lr
+            param_group["momentum"] = n_momentum
 
         # Eval
         if i % eval_rate == 0 or i == steps:
@@ -161,52 +169,43 @@ def main():
                 use_autocast,
                 dtype,
             )
-            if ddp:
-                dist.all_reduce(e_loss, dist.ReduceOp.AVG)
+            all_reduce(e_loss, rop.AVG, ddp)
             print_master(f"step: {i}/{steps}, val_loss: {e_loss.item():.8f}")
 
         # sync after eval
-        if is_cuda:
-            torch.cuda.synchronize()
+        sync(is_cuda)
 
         # Train
         for grad_i in range(grad_accum):
             no_sync_enable = grad_i < grad_accum - 1
             if no_sync_enable and ddp:
                 with model.no_sync():
-                    with torch.autocast(
-                        device_type=device_type,
-                        dtype=dtype,
-                        enabled=is_cuda and use_autocast,
-                    ):
-                        _, loss = model.forward(x, y)
+                    loss = model_loss(
+                        model, x, y, dtype, device_type, is_cuda, use_autocast
+                    )
                     loss = loss / grad_accum
                     scaler.scale(loss).backward()
             else:
-                with torch.autocast(
-                    device_type=device_type,
-                    dtype=dtype,
-                    enabled=is_cuda and use_autocast,
-                ):
-                    _, loss = model.forward(x, y)
+                loss = model_loss(
+                    model, x, y, dtype, device_type, is_cuda, use_autocast
+                )
                 loss = loss / grad_accum
                 scaler.scale(loss).backward()
             x, y = next(train_data_iter)
             x, y = x.to(device), y.to(device)
             ploss += loss.detach()
-        if ddp:
-            dist.all_reduce(ploss, dist.ReduceOp.AVG)
+        all_reduce(ploss, rop.AVG, ddp)
 
         # optim update
-        scaler.unscale_(optim)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        scaler.step(optim)
-        scaler.update()
-        optim.zero_grad()
+        for opt in optim:
+            scaler.unscale_(opt)
+            scaler.step(opt)
+            scaler.update()
+            opt.zero_grad()
 
         # sync after train
-        if is_cuda:
-            torch.cuda.synchronize()
+        sync(is_cuda)
 
         t1 = time()
         dt = t1 - t0
@@ -215,19 +214,23 @@ def main():
         flops_achived = flops_per_token * (batch_size * grad_accum * world_size) / dt
         mfu = (flops_achived / promissed_flops) * 100
         print_master(
-            f"step: {i}/{steps} | lr: {n_lr:.8f} | loss: {ploss:.8f} | norm: {norm.item():.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
+            f"step: {i}/{steps} | loss: {ploss:.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
         )
         if (save_rate % i == 0 or i == steps) and master_process:
             print_master("saving checkpoint...")
-            checkpoint = {"model": raw_model.state_dict(), "optim": optim.state_dict()}
+            checkpoint = {
+                "model": raw_model.state_dict(),
+                "adamw": optim[0].state_dict(),
+                "muon": optim[1].state_dict(),
+            }
 
             save(checkpoint, f"{save_file_name}_inst")
             save(model_conf, f"{save_file_name}_inst", "model_config.pt")
             print_master("saved checkpoint")
+        barrier(ddp)
 
     # end dist
-    if ddp:
-        dist.destroy_process_group()
+    kill_dist(ddp)
 
 
 if __name__ == "__main__":

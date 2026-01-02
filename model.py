@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from tqdm import tqdm
+from muon import Muon
 from math import sqrt
 from torch.nn import functional as F
 from utils import AttentionMask, ModelConfig, top_p
@@ -105,6 +106,9 @@ class MultiHeadAttention(nn.Module):
             conf.num_heads * self.head_dim, conf.embedding_dim, bias=conf.atten_bias
         )
 
+        self.q_norm = RMS_Norm(self.head_dim, conf.eps)
+        self.k_norm = RMS_Norm(self.head_dim, conf.eps)
+
         self.head_dp = nn.Dropout(conf.atten_dropout)
         self.atten_dp = nn.Dropout(conf.atten_dropout)
 
@@ -125,6 +129,7 @@ class MultiHeadAttention(nn.Module):
         k = k.view(B, T, self.conf.kv_heads, self.head_dim)
         v = v.view(B, T, self.conf.kv_heads, self.head_dim)
 
+        q, k = self.q_norm.forward(q), self.k_norm.forward(k)
         q = apply_rope(q, freq_cis)
         k = apply_rope(k, freq_cis)
 
@@ -262,12 +267,11 @@ class FFN(nn.Module):
     def __init__(self, conf: ModelConfig):
         super().__init__()
         self.ln1 = nn.Linear(conf.embedding_dim, conf.inter_dim, bias=conf.ffn_bias)
-        self.ln2 = nn.Linear(conf.embedding_dim, conf.inter_dim, bias=conf.ffn_bias)
         self.proj = nn.Linear(conf.inter_dim, conf.embedding_dim, bias=conf.ffn_bias)
         self.dropout = nn.Dropout(conf.ffn_dropout)
 
     def forward(self, x: torch.Tensor):
-        x = F.silu(self.ln1.forward(x)) * self.ln2.forward(x)
+        x = F.relu(self.ln1.forward(x)).square()
         x = self.dropout.forward(self.proj.forward(x))
         return x
 
@@ -633,22 +637,32 @@ class TransformerLM(nn.Module):
 
     def get_optimizer(
         self,
-        lr: float = 1e-3,
+        muon_lr: float = 0.02,
+        adamw_lr: float = 1e-3,
+        momentum: float = 0.95,
         weight_decay: float = 0.1,
         betas=(0.9, 0.97),
         fused: bool = False,
     ):
         param_dict = {pn: p for pn, p in self.named_parameters()}
-        param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+        hidden_matrix_param = {
+            p for n, p in param_dict.items() if p.ndim >= 2 and "tokemb" not in n
+        }
+        embed_param = [p for n, p in param_dict.items() if "tokemb" in n]
+        scaler_param = [p for _, p in param_dict.items() if p.ndim < 2]
+        head_param = [p for n, p in param_dict.items() if "logits" in n]
 
-        decay_params = [p for _, p in param_dict.items() if p.dim() >= 2]
-        no_decay_params = [p for _, p in param_dict.items() if p.dim() < 2]
-
-        print(f"decay_params:{len(decay_params)}")
-        print(f"no_decay_params:{len(no_decay_params)}")
-
-        groups = [
-            {"params": decay_params, "weight_decay": weight_decay},
-            {"params": no_decay_params, "weight_decay": 0.0},
-        ]
-        return torch.optim.AdamW(groups, lr=lr, betas=betas, fused=fused)
+        adamw = torch.optim.AdamW(
+            embed_param + scaler_param + head_param,
+            lr=adamw_lr,
+            betas=betas,
+            weight_decay=0,
+            fused=fused,
+        )
+        muon = Muon(
+            hidden_matrix_param,
+            lr=muon_lr,
+            weight_decay=weight_decay,
+            momentum=momentum,
+        )
+        return [adamw, muon]
