@@ -131,7 +131,7 @@ def mla_params(
 def attention_gqa_params(embedding_dim: int, num_heads: int, kv_heads: int):
     head_dim = embedding_dim // num_heads
     query = embedding_dim * num_heads * head_dim
-    key = embedding_dim * num_heads * kv_heads
+    key = embedding_dim * head_dim * kv_heads
     value = key
     proj = num_heads * head_dim * embedding_dim
     q_norm = k_norm = head_dim
