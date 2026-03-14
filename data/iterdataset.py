@@ -20,33 +20,32 @@ class TextDataset(torch.utils.data.IterableDataset):
 
         self.maxlen = maxlen
 
-        self.data = load(
-            self.shard_file, self.shards[self.shard_i], weights_only=False
-        ).astype("int32")
-
+        self.data = self._load_shard(self.shard_i)
         self.idx = rank * maxlen
 
     def __iter__(self):
         return self
 
+    def _load_shard(self, shard_i: int):
+        return load(self.shard_file, self.shards[shard_i], weights_only=False).astype(
+            "int64"
+        )
+
+    def _advance_shard(self):
+        self.shard_i = (self.shard_i + 1) % len(self.shards)
+        self.data = self._load_shard(self.shard_i)
+        self.idx = self.rank * self.maxlen
+
     def __next__(self):
-        start = self.idx
-        end = start + self.maxlen
+        while True:
+            start = self.idx
+            end = start + self.maxlen
+            if end < len(self.data):
+                break
+            self._advance_shard()
 
-        token = self.data[start : end + 1]
-        if not isinstance(token, torch.Tensor):
-            token = torch.tensor(token, dtype=torch.long)
-
-        x = token[:-1]
-        y = token[1:]
-
-        self.idx += self.maxlen * self.world_size
-        if self.idx + (self.maxlen * self.world_size + 1) > len(self.data):
-            self.idx = self.rank * self.maxlen
-            self.shard_i = (self.shard_i + 1) % len(self.shards)
-            self.data = load(
-                self.shard_file, self.shards[self.shard_i], weights_only=False
-            ).astype("int32")
+        x = torch.from_numpy(self.data[start:end]).to(torch.long)
+        y = torch.from_numpy(self.data[start + 1 : end + 1]).to(torch.long)
 
         return x, y
 
