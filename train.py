@@ -242,12 +242,16 @@ def main():
             x, y = x.to(device), y.to(device)
             ploss += loss.detach()
         all_reduce(ploss, rop.AVG, ddp)
-        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+        # Optimizer scaler logic and grad clipping
         for opt in optim:
             scaler.unscale_(opt)
+        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        for opt in optim:
             scaler.step(opt)
-            scaler.update()
-            opt.zero_grad()
+        scaler.update()
+        for opt in optim:
+            opt.zero_grad(set_to_none=True)
 
         sync(is_cuda)
 
