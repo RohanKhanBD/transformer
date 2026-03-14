@@ -196,13 +196,15 @@ def main():
             ploss += loss.detach()
         all_reduce(ploss, rop.AVG, ddp)
 
-        # optim update
-        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        # Optimizer scaler logic and grad clipping
         for opt in optim:
             scaler.unscale_(opt)
+        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        for opt in optim:
             scaler.step(opt)
-            scaler.update()
-            opt.zero_grad()
+        scaler.update()
+        for opt in optim:
+            opt.zero_grad(set_to_none=True)
 
         # sync after train
         sync(is_cuda)
@@ -216,7 +218,7 @@ def main():
         print_master(
             f"step: {i}/{steps} | loss: {ploss:.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
         )
-        if (save_rate % i == 0 or i == steps) and master_process:
+        if (i % save_rate == 0 or i == steps) and master_process:
             print_master("saving checkpoint...")
             checkpoint = {
                 "model": raw_model.state_dict(),
