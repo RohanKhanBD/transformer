@@ -66,7 +66,7 @@ class Muon(optim.Optimizer):
         for group in self.param_groups:
             for param in group["params"]:
                 if param.grad is None:
-                    param.grad == torch.zeros_like(param)
+                    param.grad = torch.zeros_like(param)
                 state = self.state[param]
                 if len(state) == 0:
                     state["momentum_buffer"] = torch.zeros_like(param)
