@@ -645,9 +645,9 @@ class TransformerLM(nn.Module):
         fused: bool = False,
     ):
         param_dict = {pn: p for pn, p in self.named_parameters()}
-        hidden_matrix_param = {
+        hidden_matrix_param = [
             p for n, p in param_dict.items() if p.ndim >= 2 and "tokemb" not in n
-        }
+        ]
         embed_param = [p for n, p in param_dict.items() if "tokemb" in n]
         scaler_param = [p for _, p in param_dict.items() if p.ndim < 2]
         head_param = [p for n, p in param_dict.items() if "logits" in n]
