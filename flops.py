@@ -60,14 +60,14 @@ def block_flops(
     kv_rank: int,
     v_dim: int,
 ):
-    return (
+    attn_flops = (
         mla_attention_flops(
             maxlen, embedding_dim, num_heads, qk_rope_dim, qk_nope_dim, kv_rank, v_dim
         )
         if use_mla
         else attention_gqa_flops(maxlen, embedding_dim, num_heads, kv_heads)
-        + ffn_flops(maxlen, embedding_dim, inter_dim)
     )
+    return attn_flops + ffn_flops(maxlen, embedding_dim, inter_dim)
 
 
 def transformer_flops(
@@ -154,13 +154,12 @@ def block_params(
     v_dim: int,
 ):
     rms_norm = embedding_dim * 2
-    return (
+    attn_param = (
         mla_params(embedding_dim, num_heads, qk_rope_dim, qk_nope_dim, kv_rank, v_dim)
         if use_mla
         else attention_gqa_params(embedding_dim, num_heads, kv_heads)
-        + ffn_params(embedding_dim, inter_dim)
-        + rms_norm
     )
+    return attn_param + ffn_params(embedding_dim, inter_dim) + rms_norm
 
 
 def transformer_params(
