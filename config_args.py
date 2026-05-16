@@ -200,12 +200,6 @@ def train_args():
         "--seed", type=int, default=1337, help="The seed for controlling model init."
     )
     parser.add_argument(
-        "--promissed_flops",
-        type=int,
-        default=312e12,
-        help="The top flops the training hardware can reach.",
-    )
-    parser.add_argument(
         "--muon_lr",
         type=float,
         default=0.02,
@@ -340,12 +334,6 @@ def sft_train_args():
         type=int,
         default=16,
         help="How many small batches or micro batches should the total number of tokens be divided into.",
-    )
-    parser.add_argument(
-        "--promissed_flops",
-        type=int,
-        default=312e12,
-        help="The top flops the training hardware can reach.",
     )
     parser.add_argument(
         "--muon_lr",
