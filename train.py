@@ -24,7 +24,7 @@ from utils import (
 
 from data import TextDataset
 from config_args import train_args
-from flops import transformer_flops
+from flops import transformer_flops, get_promissed_flops
 from training import (
     dist_init,
     kill_dist,
@@ -63,7 +63,6 @@ def main():
     tokenizer_file_name = file_args.tokenizer_file_name
     use_autocast = file_args.use_autocast
     load_mistral_tokenizer = file_args.load_mistral_tokenizer
-    promissed_flops = file_args.promissed_flops
     dtype = file_args.dtype
     dtype = {"bf16": torch.bfloat16, "f16": torch.float16}[dtype]
 
@@ -107,6 +106,14 @@ def main():
         ],
     )
 
+    ## device max flops
+    if is_cuda:
+        name = torch.cuda.get_device_properties().name
+    promissed_flops = get_promissed_flops(name)
+    promissed_flops = (
+        promissed_flops if promissed_flops is None else promissed_flops * world_size
+    )
+
     ## model flops
     flops_per_token = transformer_flops(
         vocab_size=tok.vocab_size,
@@ -146,6 +153,7 @@ def main():
     print_master(model)
     print_master(model_params)
     print_master(f"Number of devices:{world_size}")
+    print_master(f"GPU FLOPS:{promissed_flops}")
     # optimizer
     optim = raw_model.get_optimizer(
         muon_lr, adamw_lr, momentum, weight_decay, betas, fused=is_cuda
@@ -260,9 +268,14 @@ def main():
         t0 = t1
         tok_per_sec = (batch_size * model_conf.maxlen * grad_ecum * world_size) / dt
         flops_achived = flops_per_token * (batch_size * grad_ecum * world_size) / dt
-        mfu = (flops_achived / promissed_flops) * 100
+        mfu = (
+            (flops_achived / promissed_flops) * 100
+            if promissed_flops is not None
+            else None
+        )
         print_master(
-            f"step: {i}/{steps} | loss: {ploss:.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
+            f"step: {i}/{steps} | loss: {ploss:.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | "
+            + f"mfu: {f'{mfu:.2f}%' if mfu is not None else 'Unavailable'}"
         )
         if master_process:
             writer.add_scalar("loss/train", ploss, i)

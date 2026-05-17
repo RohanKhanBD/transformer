@@ -1,3 +1,15 @@
+# Devices
+devices = {"t4": 65e12, "l40s": 362e12, "l4": 121e12, "a100": 312e12, "h100": 989e12}
+
+
+def get_promissed_flops(device_name: str):
+    device_name = device_name.lower()
+    for name, flops in devices.items():
+        if name in device_name:
+            return flops
+    return None
+
+
 # MLA flops
 def mla_attention_flops(
     maxlen: int,

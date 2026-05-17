@@ -13,7 +13,7 @@ from model import TransformerLM
 from utils import ModelConfig, save, load, get_lr, print_master, muon_momentum
 from data import TextDataset
 from config_args import sft_train_args
-from flops import transformer_flops
+from flops import transformer_flops, get_promissed_flops
 from training import (
     dist_init,
     kill_dist,
@@ -51,7 +51,6 @@ def main():
     tokenizer_file_name = file_args.tokenizer_file_name
     use_autocast = file_args.use_autocast
     load_mistral_tokenizer = file_args.load_mistral_tokenizer
-    promissed_flops = file_args.promissed_flops
     dtype = file_args.dtype
     dtype = {"bf16": torch.bfloat16, "f16": torch.float16}[dtype]
 
@@ -72,6 +71,14 @@ def main():
     # Loading the model checkpoint and config
     checkpoint = load(save_file_name, weights_only=True)
     model_conf: ModelConfig = load(save_file_name, "model_config.pt", False)
+
+    ## device max flops
+    if is_cuda:
+        name = torch.cuda.get_device_properties().name
+    promissed_flops = get_promissed_flops(name)
+    promissed_flops = (
+        promissed_flops if promissed_flops is None else promissed_flops * world_size
+    )
 
     ## model flops
     flops_per_token = transformer_flops(
@@ -114,6 +121,7 @@ def main():
     print_master(model)
     print_master(model_params)
     print_master(f"Number of devices:{world_size}")
+    print_master(f"GPU FLOPS:{promissed_flops}")
 
     # making the optimizer
     optim = raw_model.get_optimizer(
@@ -214,9 +222,14 @@ def main():
         t0 = t1
         tok_per_sec = (batch_size * model_conf.maxlen * grad_accum * world_size) / dt
         flops_achived = flops_per_token * (batch_size * grad_accum * world_size) / dt
-        mfu = (flops_achived / promissed_flops) * 100
+        mfu = (
+            (flops_achived / promissed_flops) * 100
+            if promissed_flops is not None
+            else None
+        )
         print_master(
-            f"step: {i}/{steps} | loss: {ploss:.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | mfu: {mfu:.2f}%"
+            f"step: {i}/{steps} | loss: {ploss:.8f} | time: {dt:.2f}sec | tok/sec: {tok_per_sec:.2f} | "
+            + f"mfu: {f'{mfu:.2f}%' if mfu is not None else 'Unavailable'}"
         )
         if (i % save_rate == 0 or i == steps) and master_process:
             print_master("saving checkpoint...")
