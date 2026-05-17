@@ -121,6 +121,7 @@ def main():
     print_master(model)
     print_master(model_params)
     print_master(f"Number of devices:{world_size}")
+    print_master(f"GPU FLOPS:{promissed_flops}")
 
     # making the optimizer
     optim = raw_model.get_optimizer(

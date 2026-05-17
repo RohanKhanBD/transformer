@@ -153,6 +153,7 @@ def main():
     print_master(model)
     print_master(model_params)
     print_master(f"Number of devices:{world_size}")
+    print_master(f"GPU FLOPS:{promissed_flops}")
     # optimizer
     optim = raw_model.get_optimizer(
         muon_lr, adamw_lr, momentum, weight_decay, betas, fused=is_cuda
