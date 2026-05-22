@@ -65,16 +65,6 @@ Use the flag `--load_mistral_tokenizer` in training and generation steps.
 python train_tokenizer.py
 ```
 
-**Tokenizer Training Options:**
-
-| Parameter                      |
-| ------------------------------ |
-| `--dataset_path_huggingface`   |
-| `--dataset_sub_set`            |
-| `--tokenizer_file_name`        |
-| `--tokenizer_train_shard_size` |
-| `--trust_remote_code`          |
-
 **Pre-trained Resources (Custom Tokenizer Only):**
 
 * 📦 [Custom BPE Tokenizer (Kaggle)](https://www.kaggle.com/models/rohankhanbd/lilbpetokenizer)
@@ -98,17 +88,6 @@ python tokenize_data.py
 python tokenize_data.py --load_mistral_tokenizer
 ```
 
-**Data Tokenization Options:**
-
-| Parameter                      |
-| ------------------------------ |
-| `--dataset_path_huggingface`   |
-| `--dataset_sub_set`            |
-| `--tokenizer_file_name`        |
-| `--data_file_name`             |
-| `--encoded_dataset_shard_size` |
-| `--load_mistral_tokenizer`     |
-
 **Pre-tokenized Dataset (Custom Only):** [FineWeb-Edu 10B subset](https://www.kaggle.com/datasets/rohankhanbd/lil-fineweb-dataset).
 
 > ⚠️ Only compatible with the custom tokenizer.
@@ -123,33 +102,6 @@ python train.py --compile_model --use_autocast
 python train.py --compile_model --use_autocast --load_mistral_tokenizer
 ```
 
-**Training Options:**
-
-| Parameter                  |
-| -------------------------- |
-| `--steps`                  |
-| `--eval_rate`              |
-| `--eval_steps`             |
-| `--save_rate`              |
-| `--warm_up`                |
-| `--total_batch_size`       |
-| `--batch_size`             |
-| `--seed`                   |
-| `--promissed_flops`        |
-| `--lr`                     |
-| `--min_lr`                 |
-| `--weight_decay`           |
-| `--beta1`                  |
-| `--beta2`                  |
-| `--backend`                |
-| `--save_file_name`         |
-| `--data_file_name`         |
-| `--tokenizer_file_name`    |
-| `--dtype`                  |
-| `--compile_model`          |
-| `--use_autocast`           |
-| `--load_mistral_tokenizer` |
-
 ---
 
 #### **3️⃣ Generate Text**
@@ -159,20 +111,6 @@ python generate.py --input_text "Hello" --num_tokens_to_generate 20 --compile_mo
 # or
 python generate.py --input_text "Hello" --num_tokens_to_generate 20 --load_mistral_tokenizer --compile_model
 ```
-
-**Generation Options:**
-
-| Parameter                  |
-| -------------------------- |
-| `--input_text`             |
-| `--num_tokens_to_generate` |
-| `--temperature`            |
-| `--top_p`                  |
-| `--save_file_name`         |
-| `--backend`                |
-| `--tokenizer_file_name`    |
-| `--compile_model`          |
-| `--load_mistral_tokenizer` |
 
 ---
 
@@ -201,17 +139,6 @@ python tokenize_sft_data.py
 python tokenize_sft_data.py --load_mistral_tokenizer
 ```
 
-**SFT Tokenization Options:**
-
-| Parameter                        |
-| -------------------------------- |
-| `--sft_dataset_path_huggingface` |
-| `--sft_dataset_sub_set`          |
-| `--tokenizer_file_name`          |
-| `--data_file_name`               |
-| `--encoded_dataset_shard_size`   |
-| `--load_mistral_tokenizer`       |
-
 ---
 
 #### **2️⃣ Fine-tune the Model**
@@ -221,32 +148,6 @@ python train_sft.py --compile_model --use_autocast
 # or
 python train_sft.py --load_mistral_tokenizer --compile_model --use_autocast
 ```
-
-**SFT Training Options:**
-
-| Parameter                  |
-| -------------------------- |
-| `--steps`                  |
-| `--eval_rate`              |
-| `--eval_steps`             |
-| `--save_rate`              |
-| `--warm_up`                |
-| `--total_batch_size`       |
-| `--batch_size`             |
-| `--promissed_flops`        |
-| `--lr`                     |
-| `--min_lr`                 |
-| `--weight_decay`           |
-| `--beta1`                  |
-| `--beta2`                  |
-| `--backend`                |
-| `--save_file_name`         |
-| `--data_file_name`         |
-| `--tokenizer_file_name`    |
-| `--dtype`                  |
-| `--compile_model`          |
-| `--use_autocast`           |
-| `--load_mistral_tokenizer` |
 
 ---
 
