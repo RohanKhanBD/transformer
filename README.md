@@ -62,7 +62,7 @@ Use the flag `--load_mistral_tokenizer` in training and generation steps.
 ### **Option B: Train Your Own Tokenizer**
 
 ```bash
-python -m scripts.train_tokenizer.py
+python -m scripts.train_tokenizer
 ```
 
 **Pre-trained Resources (Custom Tokenizer Only):**
@@ -83,9 +83,9 @@ python -m scripts.train_tokenizer.py
 #### **1️⃣ Tokenize Your Dataset**
 
 ```bash
-python -m scripts.tokenize_data.py
+python -m scripts.tokenize_data
 # or
-python -m scripts.tokenize_data.py --load_mistral_tokenizer
+python -m scripts.tokenize_data --load_mistral_tokenizer
 ```
 
 **Pre-tokenized Dataset (Custom Only):** [FineWeb-Edu 10B subset](https://www.kaggle.com/datasets/rohankhanbd/lil-fineweb-dataset).
@@ -97,9 +97,9 @@ python -m scripts.tokenize_data.py --load_mistral_tokenizer
 #### **2️⃣ Train the Model**
 
 ```bash
-python -m scripts.train.py --compile_model --use_autocast
+python -m scripts.train --compile_model --use_autocast
 # or
-python -m scripts.train.py --compile_model --use_autocast --load_mistral_tokenizer
+python -m scripts.train --compile_model --use_autocast --load_mistral_tokenizer
 ```
 
 ---
@@ -107,9 +107,9 @@ python -m scripts.train.py --compile_model --use_autocast --load_mistral_tokeniz
 #### **3️⃣ Generate Text**
 
 ```bash
-python -m scripts.generate.py --input_text "Hello" --num_tokens_to_generate 20 --compile_model
+python -m scripts.generate --input_text "Hello" --num_tokens_to_generate 20 --compile_model
 # or
-python -m scripts.generate.py --input_text "Hello" --num_tokens_to_generate 20 --load_mistral_tokenizer --compile_model
+python -m scripts.generate --input_text "Hello" --num_tokens_to_generate 20 --load_mistral_tokenizer --compile_model
 ```
 
 ---
@@ -134,9 +134,9 @@ Perfect for:
 #### **1️⃣ Prepare the SFT Dataset**
 
 ```bash
-python -m scripts.tokenize_sft_data.py
+python -m scripts.tokenize_sft_data
 # or
-python -m scripts.tokenize_sft_data.py --load_mistral_tokenizer
+python -m scripts.tokenize_sft_data --load_mistral_tokenizer
 ```
 
 ---
@@ -144,9 +144,9 @@ python -m scripts.tokenize_sft_data.py --load_mistral_tokenizer
 #### **2️⃣ Fine-tune the Model**
 
 ```bash
-python -m scripts.train_sft.py --compile_model --use_autocast
+python -m scripts.train_sft --compile_model --use_autocast
 # or
-python -m scripts.train_sft.py --load_mistral_tokenizer --compile_model --use_autocast
+python -m scripts.train_sft --load_mistral_tokenizer --compile_model --use_autocast
 ```
 
 ---
@@ -154,9 +154,9 @@ python -m scripts.train_sft.py --load_mistral_tokenizer --compile_model --use_au
 #### **3️⃣ Test Your Instruction Model**
 
 ```bash
-python -m scripts.generate.py --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst --compile_model
+python -m scripts.generate --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst --compile_model
 # or
-python -m scripts.generate.py --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst --load_mistral_tokenizer --compile_model
+python -m scripts.generate --input_text "Python is" --num_tokens_to_generate 100 --save_file_name lilgpt_inst --load_mistral_tokenizer --compile_model
 ```
 
 ---
