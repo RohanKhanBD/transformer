@@ -59,6 +59,7 @@ def main():
     compile_model = file_args.compile_model
     backend = file_args.backend
     save_file_name = file_args.save_file_name
+    summary_file_name = file_args.summary_file_name
     data_file_name = file_args.data_file_name
     tokenizer_file_name = file_args.tokenizer_file_name
     use_autocast = file_args.use_autocast
@@ -66,7 +67,7 @@ def main():
     dtype = file_args.dtype
     dtype = {"bf16": torch.bfloat16, "f16": torch.float16}[dtype]
 
-    writer = SummaryWriter()
+    writer = SummaryWriter(log_dir=summary_file_name)
     tok = Tokenizer()
     if load_mistral_tokenizer:
         tok.load_mistral_tokenizer(tokenizer_file_name)

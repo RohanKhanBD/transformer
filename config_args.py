@@ -249,6 +249,12 @@ def train_args():
         help="Path to the model and its config.",
     )
     parser.add_argument(
+        "--summary_file_name",
+        type=str,
+        default="runs",
+        help="The folder name where the tensorboard logs will be saved.",
+    )
+    parser.add_argument(
         "--data_file_name",
         type=str,
         default="encoded_data",
